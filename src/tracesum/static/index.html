@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tracesum · 谁把主线程占了</title>
+<style>
+  :root { --ink: #14171f; --muted: #5b6472; --line: #d8dee9; --paper: #fbfaf7; --card: #ffffff; --accent: #2563eb; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+         font: 16px/1.65 ui-sans-serif, system-ui, "PingFang SC", "Noto Sans SC", sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 3.5rem 1.25rem 4rem; }
+  h1 { font-size: 1.6rem; letter-spacing: -.01em; margin: 0 0 .3rem; }
+  .sub { color: var(--muted); margin: 0 0 2rem; font-variant-numeric: tabular-nums; }
+  .chips { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0 0 2rem; }
+  .chip { border: 1px solid var(--line); border-radius: 999px; background: var(--card);
+          padding: .25rem .7rem; color: var(--muted); font-size: .9rem; }
+  .chip b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  h2 { font-size: 1rem; margin: 2rem 0 .6rem; }
+  ol { margin: 0; padding-left: 1.2rem; }
+  li { margin: .3rem 0; font-variant-numeric: tabular-nums; }
+  li small { color: var(--muted); }
+  .empty { color: var(--muted); }
+  footer { margin-top: 2.5rem; color: var(--muted); font-size: .9rem; }
+  @media (prefers-color-scheme: dark) {
+    :root { --ink: #e8eaf0; --muted: #9aa3b2; --line: #2b3240; --paper: #10131a; --card: #161b24; --accent: #7aa2ff; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>谁把主线程占了</h1>
+  <p class="sub" id="sub"></p>
+  <div class="chips" id="chips"></div>
+  <h2>最长的任务</h2>
+  <ol id="list"></ol>
+  <footer id="foot"></footer>
+</main>
+<script>
+const chips = document.getElementById("chips");
+const list = document.getElementById("list");
+const foot = document.getElementById("foot");
+const sub = document.getElementById("sub");
+
+function esc(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[ch]));
+}
+
+function draw(data) {
+  sub.textContent = `${data.span_s}s 的 trace，主线程 ${data.main_tid} 忙 ${data.busy_ms}ms（${data.busy_share}%）`;
+  chips.innerHTML = [
+    `<span class="chip">script <b>${data.script_ms}</b>ms</span>`,
+    `<span class="chip">style <b>${data.style_ms}</b>ms</span>`,
+    `<span class="chip">layout <b>${data.layout_ms}</b>ms · <b>${data.layout_count}</b> 次</span>`,
+    `<span class="chip">paint <b>${data.paint_ms}</b>ms</span>`,
+  ].join("");
+  if (!data.long_tasks || !data.long_tasks.length) {
+    list.innerHTML = `<li class="empty">没有超过 50ms 的任务——主线程没被长时间占住。</li>`;
+  } else {
+    list.innerHTML = data.long_tasks.map((task) =>
+      `<li><b>${task.ms}</b>ms · ${esc(task.name)} <small>tid ${task.tid}</small></li>`).join("");
+  }
+  foot.textContent = `来源 ${data.source} · 判据：主线程上 ≥50ms 的完整事件`;
+}
+
+fetch("/api/report", { cache: "no-store" })
+  .then((response) => response.json())
+  .then((data) => (data.error ? (sub.textContent = data.error) : draw(data)))
+  .catch(() => { sub.textContent = "读不到 /api/report"; });
+</script>
+</body>
+</html>
