@@ -19,7 +19,8 @@ def build(summary: Summary, top: int = 10, source: str = "") -> dict:
         "paint_ms": round(summary.paint_us / 1000, 1),
         "threads": [{"tid": thread.tid, "busy_ms": round(thread.busy / 1000, 1),
                      "tasks": len(thread.tasks)} for thread in summary.threads[:5]],
-        "long_tasks": [{"name": task.name, "ms": round(task.ms, 1), "tid": task.tid}
+        "long_tasks": [{"name": task.name, "ms": round(task.ms, 1), "tid": task.tid,
+                        "start_s": round(task.start / 1_000_000, 3)}
                        for task in summary.long_tasks[:top]],
     }
 
@@ -35,7 +36,9 @@ def render(data: dict) -> str:
     if data["long_tasks"]:
         lines.append("longest tasks:")
         for task in data["long_tasks"]:
-            lines.append(f"  {task['ms']:>8.1f}ms  {task['name']}")
+            # Two tasks with the same name are only distinguishable by where they
+            # start: without the time they read as one line printed twice.
+            lines.append(f"  {task['ms']:>8.1f}ms  @{task['start_s']:>7.3f}s  {task['name']}")
     else:
         lines.append("no task over 50ms — the main thread was never blocked for long")
     return "\n".join(lines)

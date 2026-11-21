@@ -60,7 +60,7 @@ function draw(data) {
     list.innerHTML = `<li class="empty">没有超过 50ms 的任务——主线程没被长时间占住。</li>`;
   } else {
     list.innerHTML = data.long_tasks.map((task) =>
-      `<li><b>${task.ms}</b>ms · ${esc(task.name)} <small>tid ${task.tid}</small></li>`).join("");
+      `<li><b>${task.ms}</b>ms · @${task.start_s}s · ${esc(task.name)} <small>tid ${task.tid}</small></li>`).join("");
   }
   foot.textContent = `来源 ${data.source} · 判据：主线程上 ≥50ms 的完整事件`;
 }

@@ -57,6 +57,7 @@ class ServerTests(unittest.TestCase):
         body = urllib.request.urlopen(f"http://127.0.0.1:{self.port}/api/report", timeout=5).read()
         data = json.loads(body)
         self.assertEqual(data["long_tasks"][0]["name"], "Long")
+        self.assertIn("start_s", data["long_tasks"][0])
 
     def test_the_page_is_html_with_a_viewport(self):
         import urllib.request

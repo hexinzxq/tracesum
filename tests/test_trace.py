@@ -53,6 +53,12 @@ class SummariseTests(unittest.TestCase):
         summary = summarise(events)
         self.assertEqual([task.name for task in summary.long_tasks], ["Big"])
 
+    def test_same_named_tasks_keep_their_own_start(self):
+        events = [event("Long", 80_000, ts=1_000_000), event("Long", 80_000, ts=5_000_000)]
+        summary = summarise(events)
+        starts = sorted(round(task.start / 1_000_000, 3) for task in summary.long_tasks)
+        self.assertEqual(starts, [1.0, 5.0])
+
     def test_layout_and_style_are_bucketed(self):
         events = [event("Layout", 20_000), event("UpdateLayoutTree", 10_000), event("Paint", 5_000)]
         summary = summarise(events)
