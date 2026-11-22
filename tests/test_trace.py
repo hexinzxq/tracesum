@@ -88,9 +88,17 @@ class SummariseTests(unittest.TestCase):
     def test_layout_and_style_are_bucketed(self):
         events = [event("Layout", 20_000), event("UpdateLayoutTree", 10_000), event("Paint", 5_000)]
         summary = summarise(events)
-        self.assertEqual(round(summary.layout_us / 1000), 30)
+        # style recalc is its own pass: counting it as layout too is a double count
+        self.assertEqual(round(summary.layout_us / 1000), 20)
         self.assertEqual(summary.layout_count, 1)
+        self.assertEqual(round(summary.style_us / 1000), 10)
         self.assertEqual(round(summary.paint_us / 1000), 5)
+
+    def test_buckets_are_about_the_main_thread(self):
+        events = [{"ph": "M", "name": "thread_name", "tid": 1, "args": {"name": "CrRendererMain"}},
+                  event("Layout", 20_000, tid=1), event("Layout", 500_000, tid=2)]
+        summary = summarise(events)
+        self.assertEqual(round(summary.layout_us / 1000), 20)
 
     def test_span_is_the_whole_trace(self):
         events = [event("A", 1000, ts=0), event("B", 2000, ts=9_000_000)]

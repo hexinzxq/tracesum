@@ -126,24 +126,29 @@ def summarise(events: list[dict], long_ms: float = 50.0) -> Summary:
         # both makes the thread busier than the trace is long (150% busy).
         thread.busy = sum(task.dur for task in outermost(thread.tasks))
     total = max(starts) - min(starts)
+    threads = sorted(by_thread.values(), key=lambda thread: thread.busy, reverse=True)
+    # The headline is about one thread, so the buckets are about that thread too:
+    # a worker's Layout in the main-thread layout total is the same mistake as
+    # calling the busiest thread "main".
+    main = next((thread for thread in threads if thread.name == "CrRendererMain"),
+                threads[0] if threads else Thread(0))
     tasks = [task for thread in by_thread.values() for task in thread.tasks]
     long_tasks = sorted((task for task in tasks if task.dur >= long_ms * US),
                         key=lambda task: task.dur, reverse=True)
-    kinds = {"Layout": 0.0, "UpdateLayoutTree": 0.0, "Paint": 0.0, "PrePaint": 0.0}
-    counts = {"Layout": 0}
-    for task in tasks:
-        for kind in kinds:
-            if task.name == kind:
-                kinds[kind] += task.dur
-                if kind in counts:
-                    counts[kind] += 1
+    # Style recalc and layout are different passes: counting UpdateLayoutTree as
+    # layout as well puts the same milliseconds in two buckets.
+    style = sum(task.dur for task in main.tasks if task.name == "UpdateLayoutTree")
+    layout = [task for task in main.tasks if task.name == "Layout"]
+    paint = sum(task.dur for task in main.tasks if task.name in ("Paint", "PrePaint"))
+    script = sum(task.dur for task in main.tasks
+                 if task.name in ("FunctionCall", "EvaluateScript", "v8.run"))
     return Summary(
         total_us=total,
-        threads=sorted(by_thread.values(), key=lambda thread: thread.busy, reverse=True),
+        threads=threads,
         long_tasks=long_tasks,
-        layout_us=kinds["Layout"] + kinds["UpdateLayoutTree"],
-        layout_count=counts["Layout"],
-        script_us=sum(task.dur for task in tasks if task.name in ("FunctionCall", "EvaluateScript", "v8.run")),
-        style_us=kinds["UpdateLayoutTree"],
-        paint_us=kinds["Paint"] + kinds["PrePaint"],
+        layout_us=sum(task.dur for task in layout),
+        layout_count=len(layout),
+        script_us=script,
+        style_us=style,
+        paint_us=paint,
     )

@@ -33,7 +33,8 @@ def render(data: dict) -> str:
         f"{' (' + data['main_name'] + ')' if data.get('main_name') else ''} busy "
         f"{data['busy_ms']:.1f}ms ({data['busy_share']:.1f}%)",
         f"  script {data['script_ms']:.1f}ms · style {data['style_ms']:.1f}ms · "
-        f"layout {data['layout_ms']:.1f}ms in {data['layout_count']} passes · "
+        f"layout {data['layout_ms']:.1f}ms in {data['layout_count']} "
+        f"{'pass' if data['layout_count'] == 1 else 'passes'} · "
         f"paint {data['paint_ms']:.1f}ms",
     ]
     if data["long_tasks"]:

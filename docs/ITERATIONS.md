@@ -25,3 +25,9 @@
 - **改了什么**：新增 `trace.outermost(tasks)`——按 `(start, -dur)` 排序后只保留不被前一个区间覆盖的任务；`Thread.busy` 改为外层任务时长之和（此前把每个 `ph: "X"` 的 `dur` 都加起来）。新增 2 条用例（嵌套父 200ms + 子 100ms → busy 200ms、占比 ≤100%；两个相邻兄弟任务仍相加）。
 - **为什么**：真跑出来的——`RunTask` 200ms 里套一个 `FunctionCall` 100ms，报告写 `busy 300.0ms (150.0%)`：**一个 200ms 的 trace 里线程忙了 300ms**。真实 profile 里嵌套是常态（RunTask → FunctionCall → …），这个数不是小偏差，是系统性地把主线程说成超载。
 - **验证**：20 个测试全过（HEAD 18）；同一份 trace 现在 `busy 200.0ms (100.0%)`，长任务列表仍同时列出父与子（它们都是真实工作）。
+
+## 2026-11-22 #3 分项只统计主线程，且不重复计同一件事
+
+- **改了什么**：`summarise()` 先算出主线程（`CrRendererMain`，没有就用最忙的），script/style/layout/paint 四个分项只由**该线程**的任务累加；`layout_us` 只算 `Layout`，`style_us` 只算 `UpdateLayoutTree`（原来 `layout` 把两者都加进来，同一段 100ms 在 style 与 layout 里各出现一次）。顺手修 `1 passes` 的单复数。新增 1 条用例（worker 的 500ms Layout 不进主线程的 layout 总计），并把原来断言 30ms 的用例改成 20+10。
+- **为什么**：真跑出来的——`UpdateLayoutTree` 100ms、主线程 `Layout` 200ms、worker `Layout` 500ms 的 trace，报告写 `layout 800.0ms in 2 passes`，而同一行上面写着主线程只忙 300ms：**分项之和比主线程总时长还大，且包含一个跟主线程无关的线程**。分项是给人看「时间去哪了」的，不是独立计数器。
+- **验证**：21 个测试全过（HEAD 20）；同一份 trace 现在 `style 100.0ms · layout 200.0ms in 1 pass`，与主线程 300ms 的构成对得上。
