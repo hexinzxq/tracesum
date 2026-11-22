@@ -73,6 +73,18 @@ class SummariseTests(unittest.TestCase):
         summary = summarise(events)
         self.assertEqual(summary.main.tid, 1)
 
+    def test_nested_events_are_not_counted_twice(self):
+        # a RunTask contains the FunctionCall inside it; both is 150% busy
+        events = [event("RunTask", 200_000, ts=0), event("FunctionCall", 100_000, ts=50_000)]
+        summary = summarise(events)
+        self.assertEqual(round(summary.main.busy / 1000), 200)
+        self.assertLessEqual(summary.busy_share, 1.0)
+
+    def test_sibling_events_still_add_up(self):
+        events = [event("A", 100_000, ts=0), event("B", 100_000, ts=200_000)]
+        summary = summarise(events)
+        self.assertEqual(round(summary.main.busy / 1000), 200)
+
     def test_layout_and_style_are_bucketed(self):
         events = [event("Layout", 20_000), event("UpdateLayoutTree", 10_000), event("Paint", 5_000)]
         summary = summarise(events)

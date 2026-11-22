@@ -19,3 +19,9 @@
 - **改了什么**：`summarise()` 读元数据事件（`ph: "M"` && `name: "thread_name"`）里的线程名，`Thread` 多了 `name`；`Summary.main` 优先取名为 `CrRendererMain` 的线程，找不到才退回「最忙的线程」。终端头部变成 `main thread 1 (CrRendererMain) busy …`，`--json` 多了 `main_name` 与每个 thread 的 `name`，页面同步显示括号里的线程名。新增 2 条用例（元数据命名、合成线程更忙时主线程仍是 renderer main）。
 - **为什么**：真跑出来的——手搓一份 4 事件 trace：`CrRendererMain` 忙 100ms、`Compositor` 忙 400ms，报告写「main thread 2 busy 400ms」。**合成线程更忙是常态**，按「最忙」选主线程等于在一类真实 profile 上把整份报告说成另一个线程。trace 自己带着线程名，不该猜。
 - **验证**：18 个测试全过（HEAD 16）；同一份 trace 现在是 `main thread 1 (CrRendererMain) busy 100.0ms (25.0%)`，页面 `sloplint.py` 干净。
+
+## 2026-11-22 #2 嵌套事件不能算两遍
+
+- **改了什么**：新增 `trace.outermost(tasks)`——按 `(start, -dur)` 排序后只保留不被前一个区间覆盖的任务；`Thread.busy` 改为外层任务时长之和（此前把每个 `ph: "X"` 的 `dur` 都加起来）。新增 2 条用例（嵌套父 200ms + 子 100ms → busy 200ms、占比 ≤100%；两个相邻兄弟任务仍相加）。
+- **为什么**：真跑出来的——`RunTask` 200ms 里套一个 `FunctionCall` 100ms，报告写 `busy 300.0ms (150.0%)`：**一个 200ms 的 trace 里线程忙了 300ms**。真实 profile 里嵌套是常态（RunTask → FunctionCall → …），这个数不是小偏差，是系统性地把主线程说成超载。
+- **验证**：20 个测试全过（HEAD 18）；同一份 trace 现在 `busy 200.0ms (100.0%)`，长任务列表仍同时列出父与子（它们都是真实工作）。

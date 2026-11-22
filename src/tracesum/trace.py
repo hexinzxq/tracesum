@@ -85,6 +85,17 @@ def load(path: Path) -> list[dict]:
     return events
 
 
+def outermost(tasks: list[Task]) -> list[Task]:
+    """The tasks that are not contained in another task on the same thread."""
+    kept: list[Task] = []
+    covered = -1.0
+    for task in sorted(tasks, key=lambda task: (task.start, -task.dur)):
+        if task.start >= covered:
+            kept.append(task)
+            covered = task.start + task.dur
+    return kept
+
+
 def summarise(events: list[dict], long_ms: float = 50.0) -> Summary:
     """Aggregate complete events by thread, and bucket the main-thread work by kind."""
     by_thread: dict[int, Thread] = {}
@@ -106,11 +117,14 @@ def summarise(events: list[dict], long_ms: float = 50.0) -> Summary:
         thread = by_thread.setdefault(tid, Thread(tid, name=names.get(tid, "")))
         task = Task(str(event.get("name") or event.get("cat") or "?"), float(dur), tid, start)
         thread.tasks.append(task)
-        thread.busy += task.dur
         starts.append(start)
         starts.append(start + task.dur)
     if not by_thread:
         raise TraceError("no complete events with a duration in this trace")
+    for thread in by_thread.values():
+        # Events nest: a RunTask contains the FunctionCall inside it, and adding
+        # both makes the thread busier than the trace is long (150% busy).
+        thread.busy = sum(task.dur for task in outermost(thread.tasks))
     total = max(starts) - min(starts)
     tasks = [task for thread in by_thread.values() for task in thread.tasks]
     long_tasks = sorted((task for task in tasks if task.dur >= long_ms * US),
