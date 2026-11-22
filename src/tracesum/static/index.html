@@ -49,7 +49,8 @@ function esc(value) {
 }
 
 function draw(data) {
-  sub.textContent = `${data.span_s}s 的 trace，主线程 ${data.main_tid} 忙 ${data.busy_ms}ms（${data.busy_share}%）`;
+  const named = data.main_name ? `（${data.main_name}）` : "";
+  sub.textContent = `${data.span_s}s 的 trace，主线程 ${data.main_tid}${named} 忙 ${data.busy_ms}ms（${data.busy_share}%）`;
   chips.innerHTML = [
     `<span class="chip">script <b>${data.script_ms}</b>ms</span>`,
     `<span class="chip">style <b>${data.style_ms}</b>ms</span>`,

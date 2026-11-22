@@ -13,3 +13,9 @@
 - **改了什么**：`report.build()` 的长任务多一个 `start_s` 字段（`task.start / 1e6`，三位小数）；终端每行改成 `  140.0ms  @  0.301s  Paint`，页面同步显示 `@0.301s`。新增 2 条用例（同名不同起点的两个任务必须落在不同 `start_s`；HTTP 返回里带这个字段）。
 - **为什么**：真跑出来的——一份 40 个事件的 trace 里前 10 条是 `140.0ms FunctionCall` / `140.0ms Paint` / `140.0ms Layout` 反复出现，**没有时间戳时它们读起来像同一行被打印了十遍**，既分不出是两个任务，也没法回 DevTools 里定位。名字和耗时都相同是常态，起点才是身份。
 - **验证**：16 个测试全过（HEAD 15）；同一份 trace 现在是 `140.0ms @ 0.065s FunctionCall`、`140.0ms @ 0.301s Paint`、`140.0ms @ 0.460s FunctionCall`，退出码不变。
+
+## 2026-11-22 #1 主线程是 trace 说的，不是「最忙的那个」
+
+- **改了什么**：`summarise()` 读元数据事件（`ph: "M"` && `name: "thread_name"`）里的线程名，`Thread` 多了 `name`；`Summary.main` 优先取名为 `CrRendererMain` 的线程，找不到才退回「最忙的线程」。终端头部变成 `main thread 1 (CrRendererMain) busy …`，`--json` 多了 `main_name` 与每个 thread 的 `name`，页面同步显示括号里的线程名。新增 2 条用例（元数据命名、合成线程更忙时主线程仍是 renderer main）。
+- **为什么**：真跑出来的——手搓一份 4 事件 trace：`CrRendererMain` 忙 100ms、`Compositor` 忙 400ms，报告写「main thread 2 busy 400ms」。**合成线程更忙是常态**，按「最忙」选主线程等于在一类真实 profile 上把整份报告说成另一个线程。trace 自己带着线程名，不该猜。
+- **验证**：18 个测试全过（HEAD 16）；同一份 trace 现在是 `main thread 1 (CrRendererMain) busy 100.0ms (25.0%)`，页面 `sloplint.py` 干净。

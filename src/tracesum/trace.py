@@ -33,6 +33,7 @@ class Task:
 class Thread:
     tid: int
     busy: float = 0.0
+    name: str = ""
     tasks: list[Task] = field(default_factory=list)
 
 
@@ -49,6 +50,15 @@ class Summary:
 
     @property
     def main(self) -> Thread:
+        """The renderer main thread when the trace names it, else the busiest.
+
+        A worker or compositor thread can out-busy the main thread on a real
+        profile; calling that one "the main thread" makes the whole report
+        describe the wrong thread.
+        """
+        for thread in self.threads:
+            if thread.name == "CrRendererMain":
+                return thread
         return max(self.threads, key=lambda thread: thread.busy) if self.threads else Thread(0)
 
     @property
@@ -79,13 +89,21 @@ def summarise(events: list[dict], long_ms: float = 50.0) -> Summary:
     """Aggregate complete events by thread, and bucket the main-thread work by kind."""
     by_thread: dict[int, Thread] = {}
     starts: list[float] = []
+    names: dict[int, str] = {}
+    for event in events:
+        # `ph: "M"` is metadata: the trace itself says which tid is which thread,
+        # and a report that guesses from busy time gets renderer-vs-worker wrong.
+        if (event.get("ph") == "M" and event.get("name") == "thread_name"
+                and isinstance(event.get("args"), dict)):
+            tid = int(event.get("tid") or 0)
+            names[tid] = str(event["args"].get("name") or "")
     for event in events:
         dur = event.get("dur")
         if event.get("ph") != "X" or not isinstance(dur, (int, float)) or dur <= 0:
             continue
         tid = int(event.get("tid") or 0)
         start = float(event.get("ts") or 0)
-        thread = by_thread.setdefault(tid, Thread(tid))
+        thread = by_thread.setdefault(tid, Thread(tid, name=names.get(tid, "")))
         task = Task(str(event.get("name") or event.get("cat") or "?"), float(dur), tid, start)
         thread.tasks.append(task)
         thread.busy += task.dur

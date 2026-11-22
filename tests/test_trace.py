@@ -59,6 +59,20 @@ class SummariseTests(unittest.TestCase):
         starts = sorted(round(task.start / 1_000_000, 3) for task in summary.long_tasks)
         self.assertEqual(starts, [1.0, 5.0])
 
+    def test_thread_names_come_from_metadata(self):
+        events = [{"ph": "M", "name": "thread_name", "tid": 4, "args": {"name": "Compositor"}},
+                  event("Paint", 10_000, tid=4)]
+        summary = summarise(events)
+        self.assertEqual(summary.threads[0].name, "Compositor")
+
+    def test_the_renderer_main_wins_over_a_busier_thread(self):
+        # a compositor thread can out-busy the main thread on a real profile
+        events = [{"ph": "M", "name": "thread_name", "tid": 1, "args": {"name": "CrRendererMain"}},
+                  event("Quick", 20_000, tid=1),
+                  event("Busy", 500_000, tid=2)]
+        summary = summarise(events)
+        self.assertEqual(summary.main.tid, 1)
+
     def test_layout_and_style_are_bucketed(self):
         events = [event("Layout", 20_000), event("UpdateLayoutTree", 10_000), event("Paint", 5_000)]
         summary = summarise(events)
