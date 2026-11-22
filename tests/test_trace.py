@@ -80,6 +80,13 @@ class SummariseTests(unittest.TestCase):
         self.assertEqual(round(summary.main.busy / 1000), 200)
         self.assertLessEqual(summary.busy_share, 1.0)
 
+    def test_overlapping_but_not_nested_tasks_keep_their_tail(self):
+        # A[0,100] and B[50,150] cover 150ms together; dropping B loses 50ms
+        events = [event("A", 100_000, ts=0), event("B", 100_000, ts=50_000)]
+        summary = summarise(events)
+        self.assertEqual(round(summary.main.busy / 1000), 150)
+        self.assertEqual(round(summary.busy_share, 2), 1.0)
+
     def test_sibling_events_still_add_up(self):
         events = [event("A", 100_000, ts=0), event("B", 100_000, ts=200_000)]
         summary = summarise(events)

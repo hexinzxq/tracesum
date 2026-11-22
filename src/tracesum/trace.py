@@ -85,15 +85,23 @@ def load(path: Path) -> list[dict]:
     return events
 
 
-def outermost(tasks: list[Task]) -> list[Task]:
-    """The tasks that are not contained in another task on the same thread."""
-    kept: list[Task] = []
-    covered = -1.0
+def busy_time(tasks: list[Task]) -> float:
+    """How long the thread was busy: the union of its task intervals.
+
+    Nested events must not be counted twice (a RunTask and the FunctionCall
+    inside it), and two overlapping-but-not-nested intervals must not be
+    dropped: taking only the "outer" task loses the tail of the second one.
+    """
+    covered = 0.0
+    busy = 0.0
     for task in sorted(tasks, key=lambda task: (task.start, -task.dur)):
-        if task.start >= covered:
-            kept.append(task)
-            covered = task.start + task.dur
-    return kept
+        end = task.start + task.dur
+        if task.start > covered:
+            busy += task.dur
+        elif end > covered:
+            busy += end - covered
+        covered = max(covered, end)
+    return busy
 
 
 def summarise(events: list[dict], long_ms: float = 50.0) -> Summary:
@@ -122,9 +130,7 @@ def summarise(events: list[dict], long_ms: float = 50.0) -> Summary:
     if not by_thread:
         raise TraceError("no complete events with a duration in this trace")
     for thread in by_thread.values():
-        # Events nest: a RunTask contains the FunctionCall inside it, and adding
-        # both makes the thread busier than the trace is long (150% busy).
-        thread.busy = sum(task.dur for task in outermost(thread.tasks))
+        thread.busy = busy_time(thread.tasks)
     total = max(starts) - min(starts)
     threads = sorted(by_thread.values(), key=lambda thread: thread.busy, reverse=True)
     # The headline is about one thread, so the buckets are about that thread too:
