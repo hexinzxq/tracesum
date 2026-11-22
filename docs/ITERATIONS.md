@@ -31,3 +31,9 @@
 - **改了什么**：`summarise()` 先算出主线程（`CrRendererMain`，没有就用最忙的），script/style/layout/paint 四个分项只由**该线程**的任务累加；`layout_us` 只算 `Layout`，`style_us` 只算 `UpdateLayoutTree`（原来 `layout` 把两者都加进来，同一段 100ms 在 style 与 layout 里各出现一次）。顺手修 `1 passes` 的单复数。新增 1 条用例（worker 的 500ms Layout 不进主线程的 layout 总计），并把原来断言 30ms 的用例改成 20+10。
 - **为什么**：真跑出来的——`UpdateLayoutTree` 100ms、主线程 `Layout` 200ms、worker `Layout` 500ms 的 trace，报告写 `layout 800.0ms in 2 passes`，而同一行上面写着主线程只忙 300ms：**分项之和比主线程总时长还大，且包含一个跟主线程无关的线程**。分项是给人看「时间去哪了」的，不是独立计数器。
 - **验证**：21 个测试全过（HEAD 20）；同一份 trace 现在 `style 100.0ms · layout 200.0ms in 1 pass`，与主线程 300ms 的构成对得上。
+
+## 2026-11-22 #4 长任务列表要说「一共多少个」
+
+- **改了什么**：`report.build()` 多返回 `long_count`（截断前的长任务总数）；终端标题从 `longest tasks:` 改成 `longest tasks (3 of 15 shown, --top to see more):`（没截断时写 `(15):`），页面标题同样变成「显示前 3 / 共 15」。新增 1 条用例（3 个长任务、`--top 1`：JSON 里 `len(long_tasks) == 1` 且 `long_count == 3`）。
+- **为什么**：真跑出来的——15 个长任务、`--top 3`，输出只有三行、没有一句提示还有 12 个。`--top` 是视图不是度量，**「3 个长任务」和「一共 15 个，给你看 3 个」对排查是两件事**；JSON 消费方也没法从 `long_tasks` 长度反推被截断了。
+- **验证**：22 个测试全过（HEAD 21）；同一份 trace 现在 `longest tasks (3 of 15 shown, --top to see more):`，`/api/report` 的 `long_count` 返回 3，页面 `sloplint.py` 干净。

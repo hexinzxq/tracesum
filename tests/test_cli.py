@@ -1,4 +1,4 @@
-import json, tempfile, unittest
+import contextlib, io, json, tempfile, unittest
 from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -29,6 +29,16 @@ class ExitTests(unittest.TestCase):
     def test_json_is_still_json_on_error(self):
         code = main(["/no/such/trace.json", "--json"])
         self.assertEqual(code, 2)
+
+    def test_the_total_number_of_long_tasks_is_in_the_json(self):
+        path = trace([event("A", 80_000, ts=0), event("B", 90_000, ts=200_000),
+                      event("C", 70_000, ts=400_000)])
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            main([str(path), "--json", "--top", "1"])
+        data = json.loads(out.getvalue())
+        self.assertEqual(len(data["long_tasks"]), 1)
+        self.assertEqual(data["long_count"], 3)
 
     def test_top_must_be_positive(self):
         path = trace([event("Small", 1_000)])

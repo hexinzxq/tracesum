@@ -21,6 +21,7 @@ def build(summary: Summary, top: int = 10, source: str = "") -> dict:
         "threads": [{"tid": thread.tid, "name": thread.name,
                      "busy_ms": round(thread.busy / 1000, 1),
                      "tasks": len(thread.tasks)} for thread in summary.threads[:5]],
+        "long_count": len(summary.long_tasks),
         "long_tasks": [{"name": task.name, "ms": round(task.ms, 1), "tid": task.tid,
                         "start_s": round(task.start / 1_000_000, 3)}
                        for task in summary.long_tasks[:top]],
@@ -38,7 +39,14 @@ def render(data: dict) -> str:
         f"paint {data['paint_ms']:.1f}ms",
     ]
     if data["long_tasks"]:
-        lines.append("longest tasks:")
+        # `--top` is a view, not a measurement: say how many there are in total,
+        # otherwise "3 long tasks" reads as if that is all the trace has.
+        shown = len(data["long_tasks"])
+        total = data["long_count"]
+        if total > shown:
+            lines.append(f"longest tasks ({shown} of {total} shown, --top to see more):")
+        else:
+            lines.append(f"longest tasks ({total}):")
         for task in data["long_tasks"]:
             # Two tasks with the same name are only distinguishable by where they
             # start: without the time they read as one line printed twice.
