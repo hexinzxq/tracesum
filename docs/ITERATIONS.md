@@ -67,3 +67,9 @@
 - **改了什么**：`static/index.html` 的「最长的任务」标题改成动态：`共 15` 或 `显示前 10 / 共 15`，有非主线程长任务时再补「，1 个不在主线程」；每条长任务的小字从 `tid 2` 变成线程名（`Compositor`，没有名字才退回 tid）。新增 1 条用例：页面源码必须引用 `main_long_count` 与 `task.thread`。
 - **为什么**：命令行已经会说 `longest tasks (1, 1 not on the main thread)` 和 `(10 of 15 shown)`，**页面还只写「最长的任务」四个字**——两个数（总数、是否在主线程）在页面上完全看不见，而页面恰好是最容易被分享给别人的那一半。另外页面一直印 `tid 2`，终端早就在印 `(Compositor)` 了。
 - **验证**：28 个测试全过（HEAD 27）；页面源码含 `offMain` 分支与线程名回退，`sloplint.py` 干净；`/api/report` 的 `main_long_count` / `thread` 字段此前已就位。
+
+## 2026-11-23 #5 阈值是可调的，而且被打印出来
+
+- **改了什么**：新增 `--long-ms MS`（默认 50，Web Vitals 那条线；`<=0` 直接 exit 2），透传给 `summarise(long_ms=…)`；payload 带 `long_ms`；终端标题从 `longest tasks (15):` 变成 `longest tasks ≥50ms (15):`，空结果行写 `no task over 100ms — …`，页面页脚与标题同样显示 `≥100ms`。新增 2 条用例（80ms 的任务默认 exit 1、`--long-ms 100` 下 exit 0 且写「no task over 100ms」；`--long-ms 0` exit 2）。
+- **为什么**：真跑出来的——`--long-ms 100` 时输出 `no task over 50ms`，**阈值明明改了，文字还写着 50**；这个数原来硬编码在 `summarise(long_ms=50.0)` 的默认值、终端文案和页面页脚三处，改一处就撒谎一次。阈值现在只有一份来源，并且凡是出现它的地方都跟着实时值走。
+- **验证**：30 个测试全过（HEAD 28）；`--long-ms 100` 输出 `no task over 100ms` 且 exit 0，`--json` 的 `long_ms` 是 100.0，页面 `sloplint.py` 干净。

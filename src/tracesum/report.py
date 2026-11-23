@@ -4,7 +4,7 @@ from __future__ import annotations
 from .trace import Summary
 
 
-def build(summary: Summary, top: int = 10, source: str = "") -> dict:
+def build(summary: Summary, top: int = 10, source: str = "", long_ms: float = 50.0) -> dict:
     main = summary.main
     names = {thread.tid: thread.name for thread in summary.threads if thread.name}
     main = summary.main
@@ -24,6 +24,7 @@ def build(summary: Summary, top: int = 10, source: str = "") -> dict:
                      "busy_ms": round(thread.busy / 1000, 1),
                      "tasks": len(thread.tasks)} for thread in summary.threads[:5]],
         "long_count": len(summary.long_tasks),
+        "long_ms": long_ms,
         "main_long_count": sum(1 for task in summary.long_tasks if task.tid == main.tid),
         "long_tasks": [{"name": task.name, "ms": round(task.ms, 1), "tid": task.tid,
                         # relative to the trace's first event, like the DevTools
@@ -55,18 +56,21 @@ def render(data: dict) -> str:
         # A long task on the compositor is not a main-thread hitch: say which thread
         # each one was on, and keep the exit code about the main thread.
         if total > shown:
-            lines.append(f"longest tasks ({shown} of {total} shown, --top to see more):")
+            lines.append(f"longest tasks ≥{data['long_ms']:g}ms ({shown} of {total} shown, --top to see more):")
         elif main_count == total:
-            lines.append(f"longest tasks ({total}):")
+            lines.append(f"longest tasks ≥{data['long_ms']:g}ms ({total}):")
         else:
-            lines.append(f"longest tasks ({total}, {total - main_count} not on the main thread):")
+            lines.append(f"longest tasks ≥{data['long_ms']:g}ms ({total}, "
+                         f"{total - main_count} not on the main thread):")
         for task in data["long_tasks"]:
             # Two tasks with the same name are only distinguishable by where they
             # start: without the time they read as one line printed twice.
             thread = f"  ({task['thread']})" if task.get("thread") else ""
             lines.append(f"  {task['ms']:>8.1f}ms  @{task['start_s']:>7.3f}s  {task['name']}{thread}")
+        # (the threshold is printed in the heading, so a --long-ms run is readable)
     else:
-        lines.append("no task over 50ms — the main thread was never blocked for long")
+        lines.append(f"no task over {data['long_ms']:g}ms — the main thread was never "
+                     f"blocked for long")
     return "\n".join(lines)
 
 

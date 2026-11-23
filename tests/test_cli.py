@@ -63,6 +63,18 @@ class ExitTests(unittest.TestCase):
         path = trace([event("Long", 500_000, tid=1)])
         self.assertEqual(main([str(path)]), 1)
 
+    def test_long_ms_moves_the_line_and_the_exit_code(self):
+        path = trace([event("Middle", 80_000)])
+        self.assertEqual(main([str(path)]), 1)  # 80ms is a long task by default
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(main([str(path), "--long-ms", "100"]), 0)
+        self.assertIn("no task over 100ms", out.getvalue())
+
+    def test_long_ms_must_be_positive(self):
+        path = trace([event("Middle", 80_000)])
+        self.assertEqual(main([str(path), "--long-ms", "0"]), 2)
+
     def test_top_must_be_positive(self):
         path = trace([event("Small", 1_000)])
         self.assertEqual(main([str(path), "--top", "0"]), 2)

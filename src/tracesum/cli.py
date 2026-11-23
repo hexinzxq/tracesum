@@ -21,6 +21,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("trace", nargs="?", help="a trace JSON exported from the Performance panel")
     parser.add_argument("--top", type=int, default=10, metavar="N",
                         help="how many long tasks to list (default 10)")
+    parser.add_argument("--long-ms", type=float, default=50.0, metavar="MS",
+                        help="what counts as a long task (default 50, the Web Vitals line)")
     parser.add_argument("--json", action="store_true", help="machine-readable output")
     parser.add_argument("--serve", action="store_true",
                         help="serve the same summary as a local page")
@@ -35,9 +37,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.top <= 0:
         print("tracesum: --top must be a positive number", file=sys.stderr)
         return 2
+    if args.long_ms <= 0:
+        print("tracesum: --long-ms must be a positive number", file=sys.stderr)
+        return 2
     path = Path(args.trace)
     try:
-        summary = summarise(load(path))
+        summary = summarise(load(path), long_ms=args.long_ms)
     except TraceError as error:
         if args.json:
             print(json.dumps({"error": str(error)}, ensure_ascii=False))
@@ -45,6 +50,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"tracesum: {error}", file=sys.stderr)
         return 2
     data = build(summary, args.top, str(path))
+    data["long_ms"] = args.long_ms
     # The page polls every few seconds but the trace is read once: say when, so a
     # re-exported file that changes nothing is not mistaken for live data.
     data["read_at"] = datetime.now().strftime("%H:%M:%S")
