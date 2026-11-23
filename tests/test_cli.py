@@ -101,6 +101,12 @@ class ServerTests(unittest.TestCase):
         self.assertRegex(data["read_at"], r"^\d{2}:\d{2}:\d{2}$")
         self.assertTrue(data["source"])
 
+    def test_the_page_counts_long_tasks_like_the_terminal(self):
+        import urllib.request
+        body = urllib.request.urlopen(f"http://127.0.0.1:{self.port}/", timeout=5).read().decode()
+        self.assertIn("main_long_count", body)
+        self.assertIn("task.thread", body)
+
     def test_the_page_is_html_with_a_viewport(self):
         import urllib.request
         body = urllib.request.urlopen(f"http://127.0.0.1:{self.port}/", timeout=5).read().decode()

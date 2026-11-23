@@ -64,11 +64,23 @@ function draw(data) {
     `<span class="chip">layout <b>${data.layout_ms}</b>ms · <b>${data.layout_count}</b> 次</span>`,
     `<span class="chip">paint <b>${data.paint_ms}</b>ms</span>`,
   ].join("");
+  const longHead = document.getElementById("long-head");
+  const offMain = (data.long_count || 0) - (data.main_long_count || 0);
+  // The terminal has said "N of M shown" and "N not on the main thread" for a
+  // while; the page still said only "最长的任务", so both numbers were invisible here.
+  if (longHead) {
+    const shown = data.long_tasks ? data.long_tasks.length : 0;
+    const total = data.long_count || 0;
+    const counted = total > shown ? `显示前 ${shown} / 共 ${total}` : `共 ${total}`;
+    longHead.textContent = offMain
+      ? `最长的任务（${counted}，${offMain} 个不在主线程）`
+      : `最长的任务（${counted}）`;
+  }
   if (!data.long_tasks || !data.long_tasks.length) {
     list.innerHTML = `<li class="empty">没有超过 50ms 的任务——主线程没被长时间占住。</li>`;
   } else {
     list.innerHTML = data.long_tasks.map((task) =>
-      `<li><b>${task.ms}</b>ms · @${task.start_s}s · ${esc(task.name)} <small>tid ${task.tid}</small></li>`).join("");
+      `<li><b>${task.ms}</b>ms · @${task.start_s}s · ${esc(task.name)} <small>${esc(task.thread || "tid " + task.tid)}</small></li>`).join("");
   }
   foot.textContent = `来源 ${data.source} · 判据：主线程上 ≥50ms 的完整事件`;
 }

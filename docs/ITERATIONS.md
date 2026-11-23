@@ -61,3 +61,9 @@
 - **改了什么**：`build()` 新增 `main_long_count`（长任务里落在主线程的数量），每条长任务多 `thread` 名字；`verdict()` 改成只看 `main_long_count`（原来只要 `long_tasks` 非空就 exit 1）。终端在存在非主线程长任务时把标题写成 `longest tasks (1, 1 not on the main thread):`，每行尾巴标 `(Compositor)`。新增 2 条用例（只在合成线程上 500ms → exit 0 且标题带提示；主线程 500ms → exit 1）。
 - **为什么**：真跑出来的——主线程只忙 20ms、合成线程一个 500ms `Paint` 的 trace，报告第一行写着主线程很闲，退出码却是 1。**「长任务」在性能语境里指主线程 >50ms**，合成线程慢不会让页面卡；拿这个当 CI 门禁会在健康的 trace 上红。
 - **验证**：27 个测试全过（HEAD 25）；`/tmp/worker.json` 现在 exit 0 且标题为 `(1, 1 not on the main thread)`，主线程长任务的 trace 仍 exit 1。
+
+## 2026-11-23 #4 页面标题也要有「共几个、几个不在主线程」
+
+- **改了什么**：`static/index.html` 的「最长的任务」标题改成动态：`共 15` 或 `显示前 10 / 共 15`，有非主线程长任务时再补「，1 个不在主线程」；每条长任务的小字从 `tid 2` 变成线程名（`Compositor`，没有名字才退回 tid）。新增 1 条用例：页面源码必须引用 `main_long_count` 与 `task.thread`。
+- **为什么**：命令行已经会说 `longest tasks (1, 1 not on the main thread)` 和 `(10 of 15 shown)`，**页面还只写「最长的任务」四个字**——两个数（总数、是否在主线程）在页面上完全看不见，而页面恰好是最容易被分享给别人的那一半。另外页面一直印 `tid 2`，终端早就在印 `(Compositor)` 了。
+- **验证**：28 个测试全过（HEAD 27）；页面源码含 `offMain` 分支与线程名回退，`sloplint.py` 干净；`/api/report` 的 `main_long_count` / `thread` 字段此前已就位。
