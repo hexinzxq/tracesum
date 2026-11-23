@@ -23,7 +23,11 @@ def build(summary: Summary, top: int = 10, source: str = "") -> dict:
                      "tasks": len(thread.tasks)} for thread in summary.threads[:5]],
         "long_count": len(summary.long_tasks),
         "long_tasks": [{"name": task.name, "ms": round(task.ms, 1), "tid": task.tid,
-                        "start_s": round(task.start / 1_000_000, 3)}
+                        # relative to the trace's first event, like the DevTools
+                        # timeline: an absolute ts from process start is thousands
+                        # of seconds and matches nothing on screen
+                        "start_s": round((task.start - summary.origin_us) / 1_000_000, 3),
+                        "ts_us": int(task.start)}
                        for task in summary.long_tasks[:top]],
     }
 

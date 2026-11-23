@@ -47,6 +47,7 @@ class Summary:
     script_us: float
     style_us: float
     paint_us: float
+    origin_us: float = 0.0
 
     @property
     def main(self) -> Thread:
@@ -150,6 +151,7 @@ def summarise(events: list[dict], long_ms: float = 50.0) -> Summary:
                  if task.name in ("FunctionCall", "EvaluateScript", "v8.run"))
     return Summary(
         total_us=total,
+        origin_us=min(starts),
         threads=threads,
         long_tasks=long_tasks,
         layout_us=sum(task.dur for task in layout),

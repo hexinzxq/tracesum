@@ -40,6 +40,16 @@ class ExitTests(unittest.TestCase):
         self.assertEqual(len(data["long_tasks"]), 1)
         self.assertEqual(data["long_count"], 3)
 
+    def test_long_task_times_are_relative_to_the_trace(self):
+        path = trace([event("A", 80_000, ts=5_000_000), event("B", 90_000, ts=5_100_000)])
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            main([str(path), "--json"])
+        data = json.loads(out.getvalue())
+        starts = {task["name"]: (task["start_s"], task["ts_us"]) for task in data["long_tasks"]}
+        self.assertEqual(starts["A"], (0.0, 5_000_000))
+        self.assertEqual(starts["B"], (0.1, 5_100_000))
+
     def test_top_must_be_positive(self):
         path = trace([event("Small", 1_000)])
         self.assertEqual(main([str(path), "--top", "0"]), 2)
