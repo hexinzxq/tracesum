@@ -2,11 +2,17 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib import resources
 
 
 def make_handler(data: dict) -> type[BaseHTTPRequestHandler]:
+    # Whatever builds the payload, the page must be able to say when the trace
+    # was read: it polls every 5s but never re-reads the file.
+    data = {**data}
+    data.setdefault("read_at", datetime.now().strftime("%H:%M:%S"))
+
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802 (http.server's spelling)
             if self.path.split("?")[0] in ("/", "/index.html"):

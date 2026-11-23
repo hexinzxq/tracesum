@@ -22,6 +22,7 @@
   li small { color: var(--muted); }
   .empty { color: var(--muted); }
   footer { margin-top: 2.5rem; color: var(--muted); font-size: .9rem; }
+  .snap { margin: 2.5rem 0 0; color: var(--muted); font-size: .82rem; }
   @media (prefers-color-scheme: dark) {
     :root { --ink: #e8eaf0; --muted: #9aa3b2; --line: #2b3240; --paper: #10131a; --card: #161b24; --accent: #7aa2ff; }
   }
@@ -34,6 +35,7 @@
   <div class="chips" id="chips"></div>
   <h2 id="long-head">最长的任务</h2>
   <ol id="list"></ol>
+  <p class="snap" id="snap"></p>
   <footer id="foot"></footer>
 </main>
 <script>
@@ -50,6 +52,11 @@ function esc(value) {
 
 function draw(data) {
   const named = data.main_name ? `（${data.main_name}）` : "";
+  const snap = document.querySelector("#snap");
+  if (snap && data.read_at) {
+    const name = (data.source || "").split("/").pop();
+    snap.textContent = `数据读于 ${data.read_at}${name ? "，来自 " + name : ""} · 重新导出 trace 后请重启 tracesum --serve`;
+  }
   sub.textContent = `${data.span_s}s 的 trace，主线程 ${data.main_tid}${named} 忙 ${data.busy_ms}ms（${data.busy_share}%）`;
   chips.innerHTML = [
     `<span class="chip">script <b>${data.script_ms}</b>ms</span>`,

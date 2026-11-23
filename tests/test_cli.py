@@ -79,6 +79,15 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(data["long_tasks"][0]["name"], "Long")
         self.assertIn("start_s", data["long_tasks"][0])
 
+    def test_the_page_is_told_when_the_trace_was_read(self):
+        import urllib.request
+        body = urllib.request.urlopen(f"http://127.0.0.1:{self.port}/", timeout=5).read().decode()
+        self.assertIn("read_at", body)
+        data = json.loads(urllib.request.urlopen(
+            f"http://127.0.0.1:{self.port}/api/report", timeout=5).read())
+        self.assertRegex(data["read_at"], r"^\d{2}:\d{2}:\d{2}$")
+        self.assertTrue(data["source"])
+
     def test_the_page_is_html_with_a_viewport(self):
         import urllib.request
         body = urllib.request.urlopen(f"http://127.0.0.1:{self.port}/", timeout=5).read().decode()

@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from .report import build, render, verdict
@@ -44,6 +45,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"tracesum: {error}", file=sys.stderr)
         return 2
     data = build(summary, args.top, str(path))
+    # The page polls every few seconds but the trace is read once: say when, so a
+    # re-exported file that changes nothing is not mistaken for live data.
+    data["read_at"] = datetime.now().strftime("%H:%M:%S")
     if args.serve:
         from .server import serve
         try:
