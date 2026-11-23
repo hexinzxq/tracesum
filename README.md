@@ -20,10 +20,11 @@ pip install -e .
 tracesum profile.json              # 人读的报告；有 >50ms 任务时 exit 1
 tracesum profile.json --json       # 给脚本
 tracesum profile.json --top 5      # 只看最长的 5 个
+tracesum profile.json --long-ms 100 # 只把 ≥100ms 的当长任务（默认 50）
 tracesum profile.json --serve      # 本地页面（默认 127.0.0.1:8765）
 ```
 
-退出码：`0` 没有长任务，`1` 有 ≥50ms 的任务（脚本里当「这次卡了」用），`2` 读不了这个文件。
+退出码：`0` 主线程没有长任务，`1` 主线程有 ≥`--long-ms`（默认 50ms）的任务（脚本里当「这次卡了」用；别的线程慢不算），`2` 读不了这个文件。
 
 ## 设计取舍
 
