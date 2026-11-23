@@ -55,3 +55,9 @@
 - **改了什么**：payload 多 `read_at`（读文件的本地时间，CLI 与 `make_handler` 都会补），页面底部加一行「数据读于 12:30:19，来自 many.json · 重新导出 trace 后请重启 tracesum --serve」；`source` 现在真的带上路径（CLI 一直传的是 `str(path)`，之前页面没显示）。新增 1 条用例（页面含 `read_at`、`/api/report` 的 `read_at` 形如 `HH:MM:SS` 且 `source` 非空）。
 - **为什么**：页面每 5 秒轮询 `/api/report`，看起来像实时数据；实际上服务在启动时把 trace 读进内存，**重新导出 trace、刷新页面，什么都不会变，也没有任何地方说这是快照**。提示语写在页面上比写在 README 里有用——看页面的人不会翻 README。
 - **验证**：25 个测试全过（HEAD 24）；`--serve` 起的页面上能看到 `数据读于 …，来自 …`，`/api/report` 带 `read_at` 与 `source`；页面 `sloplint.py` 干净。
+
+## 2026-11-23 #3 退出码只回答「主线程有没有被占住」
+
+- **改了什么**：`build()` 新增 `main_long_count`（长任务里落在主线程的数量），每条长任务多 `thread` 名字；`verdict()` 改成只看 `main_long_count`（原来只要 `long_tasks` 非空就 exit 1）。终端在存在非主线程长任务时把标题写成 `longest tasks (1, 1 not on the main thread):`，每行尾巴标 `(Compositor)`。新增 2 条用例（只在合成线程上 500ms → exit 0 且标题带提示；主线程 500ms → exit 1）。
+- **为什么**：真跑出来的——主线程只忙 20ms、合成线程一个 500ms `Paint` 的 trace，报告第一行写着主线程很闲，退出码却是 1。**「长任务」在性能语境里指主线程 >50ms**，合成线程慢不会让页面卡；拿这个当 CI 门禁会在健康的 trace 上红。
+- **验证**：27 个测试全过（HEAD 25）；`/tmp/worker.json` 现在 exit 0 且标题为 `(1, 1 not on the main thread)`，主线程长任务的 trace 仍 exit 1。

@@ -50,6 +50,19 @@ class ExitTests(unittest.TestCase):
         self.assertEqual(starts["A"], (0.0, 5_000_000))
         self.assertEqual(starts["B"], (0.1, 5_100_000))
 
+    def test_a_long_compositor_task_is_not_a_failing_main_thread(self):
+        path = trace([{"ph": "M", "name": "thread_name", "tid": 1, "args": {"name": "CrRendererMain"}},
+                      event("Quick", 20_000, tid=1), event("Paint", 500_000, tid=2)])
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = main([str(path)])
+        self.assertEqual(code, 0)
+        self.assertIn("1 not on the main thread", out.getvalue())
+
+    def test_a_long_main_thread_task_still_fails(self):
+        path = trace([event("Long", 500_000, tid=1)])
+        self.assertEqual(main([str(path)]), 1)
+
     def test_top_must_be_positive(self):
         path = trace([event("Small", 1_000)])
         self.assertEqual(main([str(path), "--top", "0"]), 2)
