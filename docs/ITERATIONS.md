@@ -91,3 +91,9 @@
 - **改了什么**：payload 多 `thread_total`（`len(summary.threads)`，`threads` 本身仍只带前 5）；终端在超过 3 个线程时写 `threads (3 of 7 shown, busiest first): …`，不多于 3 个时仍是 `threads: …`；页面在截断时补一个 chip「另有 4 个线程」。新增 1 条用例（6 个有工作的线程 → 出现 `threads (3 of 6 shown`）。
 - **为什么**：真跑出来的——一份 6 个 worker 线程的 trace，终端只印三行 `threads: 2 Worker2 … · 3 Worker3 … · 4 Worker4 …`，**不说还有几个；payload 里 `threads[:5]` 更是悄悄只留五个**。这和长任务上一轮修的是同一类毛病：截断本身没问题，装作没截断才有问题。
 - **验证**：35 个测试全过（HEAD 34）；同一份 trace 现在写 `threads (3 of 7 shown, busiest first)`（含主线程共 7 个），页面多出「另有 N 个线程」chip；`sloplint.py` 干净。
+
+## 2026-11-24 #4 线程名、任务数：都算出来了，就该写出来
+
+- **改了什么**：终端 `threads:` 行里没名字的线程从 `2 ? 60.0ms` 改成 `tid 2 60.0ms`（`?` 看起来像取值失败），名字与 tid 二选一不再并列；每个线程额外带上它跑过的任务数 `2 Compositor 400.0ms / 1 task`（单复数分开），页面 chip 同样加「N 个任务」。新增 1 条用例（两个无名线程 → 行里出现 `tid 2` 且不含 `?`），原有 `threads: 2 Compositor 500.0ms` 断言加上 `/ 1 task`。
+- **为什么**：真跑出来的——无元数据的 trace 打 `threads: 2 ? 60.0ms`，读者既不知道 2 是谁也不知道 `?` 是没名字还是解析失败；而 payload 里每个线程一直带着 `tasks` 数，**终端和页面都没用过它**。合成线程忙 400ms 是 1 个长任务还是 200 个小任务，对「它到底在干嘛」是两个答案。
+- **验证**：36 个测试全过（HEAD 35）；`/tmp/unnamed.json` 现在是 `threads: tid 2 60.0ms / 1 task · tid 3 60.0ms / 1 task`，`/tmp/meta.json` 是 `2 Compositor 400.0ms / 1 task`；`sloplint.py` 干净。

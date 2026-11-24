@@ -63,8 +63,12 @@ def render(data: dict) -> str:
         # Both the payload and this line truncate the thread list; say by how much.
         label = (f"threads ({len(cut)} of {total} shown, busiest first):"
                  if total > len(cut) else "threads:")
+        # `2 ? 60.0ms` reads like a missing value; an unnamed thread is still a tid.
         shown = " · ".join(
-            f"{thread['tid']} {thread['name'] or '?'} {thread['busy_ms']:.1f}ms"
+            (f"{thread['tid']} {thread['name']}" if thread["name"]
+             else f"tid {thread['tid']}")
+            + f" {thread['busy_ms']:.1f}ms / {thread['tasks']} "
+              f"{'task' if thread['tasks'] == 1 else 'tasks'}"
             for thread in cut)
         lines.append(f"{label} {shown}")
     if data["long_tasks"]:

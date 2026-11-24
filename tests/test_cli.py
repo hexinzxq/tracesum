@@ -99,7 +99,7 @@ class ExitTests(unittest.TestCase):
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
             main([str(path)])
-        self.assertIn("threads: 2 Compositor 500.0ms", out.getvalue())
+        self.assertIn("threads: 2 Compositor 500.0ms / 1 task", out.getvalue())
 
     def test_a_single_thread_trace_has_no_threads_line(self):
         path = trace([event("Quick", 20_000, tid=1)])
@@ -118,6 +118,15 @@ class ExitTests(unittest.TestCase):
         with contextlib.redirect_stdout(out):
             main([str(path)])
         self.assertIn("threads (3 of 6 shown", out.getvalue())
+
+    def test_an_unnamed_thread_is_a_tid_not_a_question_mark(self):
+        path = trace([event("A", 60_000, tid=2), event("B", 60_000, tid=3)])
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            main([str(path)])
+        line = [row for row in out.getvalue().splitlines() if row.startswith("threads")][0]
+        self.assertIn("tid 2", line)
+        self.assertNotIn("?", line)
 
     def test_top_must_be_positive(self):
         path = trace([event("Small", 1_000)])
