@@ -75,6 +75,23 @@ class ExitTests(unittest.TestCase):
         path = trace([event("Middle", 80_000)])
         self.assertEqual(main([str(path), "--long-ms", "0"]), 2)
 
+    def test_a_trace_without_thread_names_says_main_is_a_guess(self):
+        path = trace([event("Paint", 300_000, tid=2)])
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            main([str(path)])
+        self.assertIn("busiest thread 2", out.getvalue())
+        self.assertIn("no threads", out.getvalue())
+
+    def test_a_named_main_thread_is_not_called_a_guess(self):
+        path = trace([{"ph": "M", "name": "thread_name", "tid": 1,
+                       "args": {"name": "CrRendererMain"}}, event("Long", 120_000, tid=1)])
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            main([str(path)])
+        self.assertIn("main thread 1 (CrRendererMain)", out.getvalue())
+        self.assertNotIn("guess", out.getvalue())
+
     def test_top_must_be_positive(self):
         path = trace([event("Small", 1_000)])
         self.assertEqual(main([str(path), "--top", "0"]), 2)

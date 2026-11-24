@@ -13,6 +13,9 @@ def build(summary: Summary, top: int = 10, source: str = "", long_ms: float = 50
         "span_s": round(summary.total_us / 1_000_000, 3),
         "main_tid": main.tid,
         "main_name": main.name,
+        # With no thread names in the trace, "main" is just the busiest thread: the
+        # report must say so instead of presenting a guess as a fact.
+        "main_guessed": not any(thread.name == "CrRendererMain" for thread in summary.threads),
         "busy_ms": round(main.busy / 1000, 1),
         "busy_share": round(summary.busy_share * 100, 1),
         "layout_ms": round(summary.layout_us / 1000, 1),
@@ -39,9 +42,12 @@ def build(summary: Summary, top: int = 10, source: str = "", long_ms: float = 50
 
 def render(data: dict) -> str:
     lines = [
-        f"{data['span_s']:.3f}s of trace, main thread {data['main_tid']}"
-        f"{' (' + data['main_name'] + ')' if data.get('main_name') else ''} busy "
-        f"{data['busy_ms']:.1f}ms ({data['busy_share']:.1f}%)",
+        f"{data['span_s']:.3f}s of trace, "
+        f"{'main thread ' + str(data['main_tid']) + ' (' + str(data['main_name']) + ')' if data.get('main_name') and not data.get('main_guessed') else 'busiest thread ' + str(data['main_tid'])}"
+        f" busy {data['busy_ms']:.1f}ms ({data['busy_share']:.1f}%)"
+        # a guess must not read like a measurement
+        + ("" if data.get("main_name") and not data.get("main_guessed")
+           else " — this trace names no threads, so \"main\" is a guess"),
         f"  script {data['script_ms']:.1f}ms · style {data['style_ms']:.1f}ms · "
         f"layout {data['layout_ms']:.1f}ms in {data['layout_count']} "
         f"{'pass' if data['layout_count'] == 1 else 'passes'} · "

@@ -57,7 +57,9 @@ function draw(data) {
     const name = (data.source || "").split("/").pop();
     snap.textContent = `数据读于 ${data.read_at}${name ? "，来自 " + name : ""} · 重新导出 trace 后请重启 tracesum --serve`;
   }
-  sub.textContent = `${data.span_s}s 的 trace，主线程 ${data.main_tid}${named} 忙 ${data.busy_ms}ms（${data.busy_share}%）`;
+  sub.textContent = data.main_guessed
+    ? `${data.span_s}s 的 trace，最忙的线程是 ${data.main_tid}——这份 trace 没写线程名，主线程是猜的；忙 ${data.busy_ms}ms（${data.busy_share}%）`
+    : `${data.span_s}s 的 trace，主线程 ${data.main_tid}${named} 忙 ${data.busy_ms}ms（${data.busy_share}%）`;
   chips.innerHTML = [
     `<span class="chip">script <b>${data.script_ms}</b>ms</span>`,
     `<span class="chip">style <b>${data.style_ms}</b>ms</span>`,

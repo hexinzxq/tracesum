@@ -73,3 +73,9 @@
 - **改了什么**：新增 `--long-ms MS`（默认 50，Web Vitals 那条线；`<=0` 直接 exit 2），透传给 `summarise(long_ms=…)`；payload 带 `long_ms`；终端标题从 `longest tasks (15):` 变成 `longest tasks ≥50ms (15):`，空结果行写 `no task over 100ms — …`，页面页脚与标题同样显示 `≥100ms`。新增 2 条用例（80ms 的任务默认 exit 1、`--long-ms 100` 下 exit 0 且写「no task over 100ms」；`--long-ms 0` exit 2）。
 - **为什么**：真跑出来的——`--long-ms 100` 时输出 `no task over 50ms`，**阈值明明改了，文字还写着 50**；这个数原来硬编码在 `summarise(long_ms=50.0)` 的默认值、终端文案和页面页脚三处，改一处就撒谎一次。阈值现在只有一份来源，并且凡是出现它的地方都跟着实时值走。
 - **验证**：30 个测试全过（HEAD 28）；`--long-ms 100` 输出 `no task over 100ms` 且 exit 0，`--json` 的 `long_ms` 是 100.0，页面 `sloplint.py` 干净。
+
+## 2026-11-24 #1 「主线程」是猜的，就说它是猜的
+
+- **改了什么**：`build()` 多一个 `main_guessed`（trace 里没有任何 `CrRendererMain` 线程名时为 true）；终端第一行在猜的时候写 `busiest thread 2 busy 300.0ms (100.0%) — this trace names no threads, so "main" is a guess`，页面同理（「最忙的线程是 2——这份 trace 没写线程名，主线程是猜的」）。新增 2 条用例（无元数据 → `busiest thread 2` 且含「no threads」；有 `CrRendererMain` 元数据 → `main thread 1 (CrRendererMain)` 且不含 `guess`）。
+- **为什么**：真跑出来的——手搓一份没有元数据事件的 trace（`tid 1` 100ms、`tid 2` 300ms），报告写 `main thread 2 busy 300.0ms`，理直气壮。**那份 trace 里根本没有「主线程」这个信息**，工具只是挑了最忙的线程；真 trace 里更忙的往往是合成线程，读者会拿这个数当主线程卡顿。
+- **验证**：32 个测试全过（HEAD 30）；有线程名的那份仍是 `main thread 1 (CrRendererMain) busy 1005.0ms`，不再出现 guess 文案；页面 `sloplint.py` 干净。
