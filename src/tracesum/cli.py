@@ -37,6 +37,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.top <= 0:
         print("tracesum: --top must be a positive number", file=sys.stderr)
         return 2
+    if args.serve and not 0 <= args.port <= 65535:
+        print("tracesum: --port must be between 0 and 65535 (0 picks a free one)",
+              file=sys.stderr)
+        return 2
     if args.long_ms <= 0:
         print("tracesum: --long-ms must be a positive number", file=sys.stderr)
         return 2
@@ -58,7 +62,7 @@ def main(argv: list[str] | None = None) -> int:
         from .server import serve
         try:
             serve(data, args.host, args.port)
-        except OSError as error:
+        except (OSError, OverflowError) as error:
             print(f"tracesum: cannot listen on {args.host}:{args.port} — "
                   f"{error.strerror or error}. Pass --port to pick another.", file=sys.stderr)
             return 2

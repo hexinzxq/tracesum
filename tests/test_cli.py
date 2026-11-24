@@ -128,6 +128,14 @@ class ExitTests(unittest.TestCase):
         self.assertIn("tid 2", line)
         self.assertNotIn("?", line)
 
+    def test_an_out_of_range_port_is_a_sentence(self):
+        path = trace([event("Quick", 10_000)])
+        for port in ("70000", "-1"):
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                self.assertEqual(main([str(path), "--serve", "--port", port]), 2)
+            self.assertIn("--port must be between 0 and 65535", err.getvalue())
+
     def test_top_must_be_positive(self):
         path = trace([event("Small", 1_000)])
         self.assertEqual(main([str(path), "--top", "0"]), 2)

@@ -97,3 +97,9 @@
 - **改了什么**：终端 `threads:` 行里没名字的线程从 `2 ? 60.0ms` 改成 `tid 2 60.0ms`（`?` 看起来像取值失败），名字与 tid 二选一不再并列；每个线程额外带上它跑过的任务数 `2 Compositor 400.0ms / 1 task`（单复数分开），页面 chip 同样加「N 个任务」。新增 1 条用例（两个无名线程 → 行里出现 `tid 2` 且不含 `?`），原有 `threads: 2 Compositor 500.0ms` 断言加上 `/ 1 task`。
 - **为什么**：真跑出来的——无元数据的 trace 打 `threads: 2 ? 60.0ms`，读者既不知道 2 是谁也不知道 `?` 是没名字还是解析失败；而 payload 里每个线程一直带着 `tasks` 数，**终端和页面都没用过它**。合成线程忙 400ms 是 1 个长任务还是 200 个小任务，对「它到底在干嘛」是两个答案。
 - **验证**：36 个测试全过（HEAD 35）；`/tmp/unnamed.json` 现在是 `threads: tid 2 60.0ms / 1 task · tid 3 60.0ms / 1 task`，`/tmp/meta.json` 是 `2 Compositor 400.0ms / 1 task`；`sloplint.py` 干净。
+
+## 2026-11-24 #5 端口越界是一句话，不是二十行栈
+
+- **改了什么**：`--serve` 时先校验 `0 <= --port <= 65535`，否则 `tracesum: --port must be between 0 and 65535 (0 picks a free one)`、exit 2；`serve` 的异常分支同时收 `OverflowError`（`ThreadingHTTPServer` 在越界端口上抛的是它，不是 `OSError`）。新增 1 条用例（`--port 70000` / `-1` 都返回 2 且带这句提示）。
+- **为什么**：真跑出来的——`--serve --port 70000` 直接抛 `OverflowError: bind(): port must be 0-65535.` 加二十行 `socketserver` 栈。端口被占时早就是一句人话了（`cannot listen on … — Address already in use. Pass --port …`），**越界这个更简单的错误反而漏了**；而且它抛的异常类型不在原来 `except OSError` 的网里。
+- **验证**：37 个测试全过（HEAD 36）；`--port 70000` 与 `-1` 现在都只打一行提示、exit 2；`--port 0` 照旧自动挑空闲端口。
