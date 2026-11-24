@@ -79,3 +79,9 @@
 - **改了什么**：`build()` 多一个 `main_guessed`（trace 里没有任何 `CrRendererMain` 线程名时为 true）；终端第一行在猜的时候写 `busiest thread 2 busy 300.0ms (100.0%) — this trace names no threads, so "main" is a guess`，页面同理（「最忙的线程是 2——这份 trace 没写线程名，主线程是猜的」）。新增 2 条用例（无元数据 → `busiest thread 2` 且含「no threads」；有 `CrRendererMain` 元数据 → `main thread 1 (CrRendererMain)` 且不含 `guess`）。
 - **为什么**：真跑出来的——手搓一份没有元数据事件的 trace（`tid 1` 100ms、`tid 2` 300ms），报告写 `main thread 2 busy 300.0ms`，理直气壮。**那份 trace 里根本没有「主线程」这个信息**，工具只是挑了最忙的线程；真 trace 里更忙的往往是合成线程，读者会拿这个数当主线程卡顿。
 - **验证**：32 个测试全过（HEAD 30）；有线程名的那份仍是 `main thread 1 (CrRendererMain) busy 1005.0ms`，不再出现 guess 文案；页面 `sloplint.py` 干净。
+
+## 2026-11-24 #2 其他线程一直在 payload 里，但没出现在任何地方
+
+- **改了什么**：终端在第一行下面多一行 `threads: 2 Compositor 400.0ms · 1 CrRendererMain 100.0ms`（只在多于一个线程时打，最多三个，按忙时降序）；页面 chips 末尾补上同样的线程 chip（`Compositor 400ms`）。新增 2 条用例（两个线程 → 出现 `threads: 2 Compositor 500.0ms`；单线程 → 不打这一行）。
+- **为什么**：真跑出来的——`/api/report` 从第一版起就带着 `threads`（tid、名字、忙时、任务数），**终端一行没印、页面一个没画**（`grep threads index.html` = 0）。工具叫「谁把主线程占了」，却看不到别的线程在干什么；判断「合成线程是不是更忙」得自己翻 JSON。
+- **验证**：34 个测试全过（HEAD 32）；`/tmp/meta.json` 现在第二行后跟着 `threads: 2 Compositor 400.0ms · 1 CrRendererMain 100.0ms`，页面 chips 多出来；`sloplint.py` 干净。

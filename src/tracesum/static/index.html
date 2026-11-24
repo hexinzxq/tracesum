@@ -65,6 +65,8 @@ function draw(data) {
     `<span class="chip">style <b>${data.style_ms}</b>ms</span>`,
     `<span class="chip">layout <b>${data.layout_ms}</b>ms · <b>${data.layout_count}</b> 次</span>`,
     `<span class="chip">paint <b>${data.paint_ms}</b>ms</span>`,
+    ...(data.threads || []).slice(0, 3).map((thread) =>
+      `<span class="chip">${esc(thread.name || "tid " + thread.tid)} <b>${thread.busy_ms}</b>ms</span>`),
   ].join("");
   const longHead = document.getElementById("long-head");
   const offMain = (data.long_count || 0) - (data.main_long_count || 0);

@@ -53,6 +53,14 @@ def render(data: dict) -> str:
         f"{'pass' if data['layout_count'] == 1 else 'passes'} · "
         f"paint {data['paint_ms']:.1f}ms",
     ]
+    threads = data.get("threads") or []
+    if len(threads) > 1:
+        # The report is titled after "who is blocking the main thread"; the other
+        # threads were computed and shipped in the payload but never printed.
+        shown = " · ".join(
+            f"{thread['tid']} {thread['name'] or '?'} {thread['busy_ms']:.1f}ms"
+            for thread in threads[:3])
+        lines.append(f"threads: {shown}")
     if data["long_tasks"]:
         # `--top` is a view, not a measurement: say how many there are in total,
         # otherwise "3 long tasks" reads as if that is all the trace has.

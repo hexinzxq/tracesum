@@ -92,6 +92,22 @@ class ExitTests(unittest.TestCase):
         self.assertIn("main thread 1 (CrRendererMain)", out.getvalue())
         self.assertNotIn("guess", out.getvalue())
 
+    def test_the_other_threads_are_printed(self):
+        path = trace([{"ph": "M", "name": "thread_name", "tid": 1, "args": {"name": "CrRendererMain"}},
+                      {"ph": "M", "name": "thread_name", "tid": 2, "args": {"name": "Compositor"}},
+                      event("Quick", 20_000, tid=1), event("Paint", 500_000, tid=2)])
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            main([str(path)])
+        self.assertIn("threads: 2 Compositor 500.0ms", out.getvalue())
+
+    def test_a_single_thread_trace_has_no_threads_line(self):
+        path = trace([event("Quick", 20_000, tid=1)])
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            main([str(path)])
+        self.assertNotIn("threads:", out.getvalue())
+
     def test_top_must_be_positive(self):
         path = trace([event("Small", 1_000)])
         self.assertEqual(main([str(path), "--top", "0"]), 2)
