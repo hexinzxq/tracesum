@@ -23,6 +23,7 @@ def build(summary: Summary, top: int = 10, source: str = "", long_ms: float = 50
         "script_ms": round(summary.script_us / 1000, 1),
         "style_ms": round(summary.style_us / 1000, 1),
         "paint_ms": round(summary.paint_us / 1000, 1),
+        "thread_total": len(summary.threads),
         "threads": [{"tid": thread.tid, "name": thread.name,
                      "busy_ms": round(thread.busy / 1000, 1),
                      "tasks": len(thread.tasks)} for thread in summary.threads[:5]],
@@ -57,10 +58,15 @@ def render(data: dict) -> str:
     if len(threads) > 1:
         # The report is titled after "who is blocking the main thread"; the other
         # threads were computed and shipped in the payload but never printed.
+        cut = threads[:3]
+        total = data.get("thread_total", len(threads))
+        # Both the payload and this line truncate the thread list; say by how much.
+        label = (f"threads ({len(cut)} of {total} shown, busiest first):"
+                 if total > len(cut) else "threads:")
         shown = " · ".join(
             f"{thread['tid']} {thread['name'] or '?'} {thread['busy_ms']:.1f}ms"
-            for thread in threads[:3])
-        lines.append(f"threads: {shown}")
+            for thread in cut)
+        lines.append(f"{label} {shown}")
     if data["long_tasks"]:
         # `--top` is a view, not a measurement: say how many there are in total,
         # otherwise "3 long tasks" reads as if that is all the trace has.

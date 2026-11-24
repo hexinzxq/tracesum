@@ -108,6 +108,17 @@ class ExitTests(unittest.TestCase):
             main([str(path)])
         self.assertNotIn("threads:", out.getvalue())
 
+    def test_a_truncated_thread_list_says_how_many_there_are(self):
+        events = [{"ph": "M", "name": "thread_name", "tid": 1,
+                   "args": {"name": "CrRendererMain"}}]
+        for tid in range(2, 8):
+            events.append(event("Work", 60_000, tid=tid))  # 6 threads with work
+        path = trace(events)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            main([str(path)])
+        self.assertIn("threads (3 of 6 shown", out.getvalue())
+
     def test_top_must_be_positive(self):
         path = trace([event("Small", 1_000)])
         self.assertEqual(main([str(path), "--top", "0"]), 2)

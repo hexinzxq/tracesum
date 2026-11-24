@@ -67,6 +67,13 @@ function draw(data) {
     `<span class="chip">paint <b>${data.paint_ms}</b>ms</span>`,
     ...(data.threads || []).slice(0, 3).map((thread) =>
       `<span class="chip">${esc(thread.name || "tid " + thread.tid)} <b>${thread.busy_ms}</b>ms</span>`),
+    ...(() => {
+      const shown = Math.min(3, (data.threads || []).length);
+      const total = data.thread_total || shown;
+      return total > shown
+        ? [`<span class="chip">另有 <b>${total - shown}</b> 个线程</span>`]
+        : [];
+    })(),
   ].join("");
   const longHead = document.getElementById("long-head");
   const offMain = (data.long_count || 0) - (data.main_long_count || 0);

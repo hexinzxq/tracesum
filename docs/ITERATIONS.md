@@ -85,3 +85,9 @@
 - **改了什么**：终端在第一行下面多一行 `threads: 2 Compositor 400.0ms · 1 CrRendererMain 100.0ms`（只在多于一个线程时打，最多三个，按忙时降序）；页面 chips 末尾补上同样的线程 chip（`Compositor 400ms`）。新增 2 条用例（两个线程 → 出现 `threads: 2 Compositor 500.0ms`；单线程 → 不打这一行）。
 - **为什么**：真跑出来的——`/api/report` 从第一版起就带着 `threads`（tid、名字、忙时、任务数），**终端一行没印、页面一个没画**（`grep threads index.html` = 0）。工具叫「谁把主线程占了」，却看不到别的线程在干什么；判断「合成线程是不是更忙」得自己翻 JSON。
 - **验证**：34 个测试全过（HEAD 32）；`/tmp/meta.json` 现在第二行后跟着 `threads: 2 Compositor 400.0ms · 1 CrRendererMain 100.0ms`，页面 chips 多出来；`sloplint.py` 干净。
+
+## 2026-11-24 #3 线程列表也在截断，也得说一声
+
+- **改了什么**：payload 多 `thread_total`（`len(summary.threads)`，`threads` 本身仍只带前 5）；终端在超过 3 个线程时写 `threads (3 of 7 shown, busiest first): …`，不多于 3 个时仍是 `threads: …`；页面在截断时补一个 chip「另有 4 个线程」。新增 1 条用例（6 个有工作的线程 → 出现 `threads (3 of 6 shown`）。
+- **为什么**：真跑出来的——一份 6 个 worker 线程的 trace，终端只印三行 `threads: 2 Worker2 … · 3 Worker3 … · 4 Worker4 …`，**不说还有几个；payload 里 `threads[:5]` 更是悄悄只留五个**。这和长任务上一轮修的是同一类毛病：截断本身没问题，装作没截断才有问题。
+- **验证**：35 个测试全过（HEAD 34）；同一份 trace 现在写 `threads (3 of 7 shown, busiest first)`（含主线程共 7 个），页面多出「另有 N 个线程」chip；`sloplint.py` 干净。
