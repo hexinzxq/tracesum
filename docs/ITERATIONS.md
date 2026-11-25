@@ -121,3 +121,9 @@
 - **改了什么**：`summarise(..., kinds=)` 与 `--kind BUCKET=NAME[,NAME]`（可重复，BUCKET 限 script/style/layout/paint）——把调用方自己的事件名并进对应分项，`other` 的判定同步用合并后的名字集合；README 用法加一行，新增 2 条用例（`--kind script=TimerFire` 让 1005ms 从 `other` 挪进 `script`；`--kind bogus=X` 给一句话、exit 2）。
 - **为什么**：上一轮把「没归类的 1005ms」摊成 `other` 之后，真实输入里的下一个问题就是**这 1005ms 到底叫什么**——`/tmp/many.json` 里全是 `TimerFire`，React/Vue 的 trace 里还有 `React:render` 这种名字，而分项表写死了六个 Chrome 名字，用户没有任何办法说「它算脚本时间」。
 - **验证**：41 个测试全过（HEAD 39）；`--kind script=TimerFire` 后分项行变 `script 1005.0ms … other 0.0ms`；非法 spec 打 `tracesum: --kind wants BUCKET=NAME[,NAME] with BUCKET in script, style, layout, paint, got 'bogus=X'`。
+
+## 2026-11-25 #4 一次卡顿被数成四次
+
+- **改了什么**：`build()` 里每个长任务多 `nested` / `parent`（同一线程上被一个更长的长任务完整包住）；终端标题补 `, 1 nested inside a longer task`，行尾补 `, in Paint`；页面小字补「，在 Paint 内」。新增 1 条用例（`RunTask` 300ms 套 `FunctionCall` 60ms → 标题出现 `1 nested inside a longer task`、行里出现 `in RunTask`）。
+- **为什么**：真跑出来的——`Paint 100ms` 里套 `Layout 50ms` 时报告写 `longest tasks ≥50ms (2)`，读起来像**卡了两次**，其实是一次 100ms 的卡顿里的一次重排。DevTools 里这两条也并列，但它有时间轴，能看出包含关系；纯文本清单没有。
+- **验证**：42 个测试全过（HEAD 41）；`/tmp/nested.json` 现在是 `(2, 1 nested inside a longer task)` 且 Layout 行尾 `, in Paint`；`sloplint.py` 干净。

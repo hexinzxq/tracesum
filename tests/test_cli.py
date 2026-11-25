@@ -166,6 +166,19 @@ class ExitTests(unittest.TestCase):
             self.assertEqual(main([str(path), "--kind", "bogus=X"]), 2)
         self.assertIn("--kind wants BUCKET=NAME", err.getvalue())
 
+    def test_a_nested_long_task_says_what_it_is_inside(self):
+        events = [{"ph": "M", "name": "thread_name", "tid": 1,
+                   "args": {"name": "CrRendererMain"}},
+                  event("RunTask", 300_000, ts=0),
+                  event("FunctionCall", 60_000, ts=20_000)]
+        path = trace(events)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            main([str(path)])
+        text = out.getvalue()
+        self.assertIn("1 nested inside a longer task", text)
+        self.assertIn("in RunTask", text)
+
     def test_top_must_be_positive(self):
         path = trace([event("Small", 1_000)])
         self.assertEqual(main([str(path), "--top", "0"]), 2)

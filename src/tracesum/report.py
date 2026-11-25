@@ -7,7 +7,15 @@ from .trace import Summary
 def build(summary: Summary, top: int = 10, source: str = "", long_ms: float = 50.0) -> dict:
     main = summary.main
     names = {thread.tid: thread.name for thread in summary.threads if thread.name}
-    main = summary.main
+
+    def parent_of(task):
+        # A 60ms child inside a 300ms parent is part of one hitch, not a second one.
+        for other in summary.long_tasks:
+            if (other is not task and other.tid == task.tid and other.dur > task.dur
+                    and other.start <= task.start
+                    and other.start + other.dur >= task.start + task.dur):
+                return other
+        return None
     return {
         "source": source,
         "span_s": round(summary.total_us / 1_000_000, 3),
@@ -35,7 +43,10 @@ def build(summary: Summary, top: int = 10, source: str = "", long_ms: float = 50
         "long_count": len(summary.long_tasks),
         "long_ms": long_ms,
         "main_long_count": sum(1 for task in summary.long_tasks if task.tid == main.tid),
+        "long_nested_count": sum(1 for task in summary.long_tasks if parent_of(task)),
         "long_tasks": [{"name": task.name, "ms": round(task.ms, 1), "tid": task.tid,
+                        "nested": bool(parent_of(task)),
+                        "parent": parent_of(task).name if parent_of(task) else "",
                         # relative to the trace's first event, like the DevTools
                         # timeline: an absolute ts from process start is thousands
                         # of seconds and matches nothing on screen
@@ -94,18 +105,25 @@ def render(data: dict) -> str:
         main_count = data["main_long_count"]
         # A long task on the compositor is not a main-thread hitch: say which thread
         # each one was on, and keep the exit code about the main thread.
+        nested = data.get("long_nested_count") or 0
+        # A 60ms child of a 300ms task is the same hitch, not a second one: counting
+        # both as "long tasks" turns one freeze into four.
+        extra = f", {nested} nested inside a longer task" if nested else ""
         if total > shown:
-            lines.append(f"longest tasks ≥{data['long_ms']:g}ms ({shown} of {total} shown, --top to see more):")
+            lines.append(f"longest tasks ≥{data['long_ms']:g}ms "
+                         f"({shown} of {total} shown{extra}, --top to see more):")
         elif main_count == total:
-            lines.append(f"longest tasks ≥{data['long_ms']:g}ms ({total}):")
+            lines.append(f"longest tasks ≥{data['long_ms']:g}ms ({total}{extra}):")
         else:
             lines.append(f"longest tasks ≥{data['long_ms']:g}ms ({total}, "
-                         f"{total - main_count} not on the main thread):")
+                         f"{total - main_count} not on the main thread{extra}):")
         for task in data["long_tasks"]:
             # Two tasks with the same name are only distinguishable by where they
             # start: without the time they read as one line printed twice.
             thread = f"  ({task['thread']})" if task.get("thread") else ""
-            lines.append(f"  {task['ms']:>8.1f}ms  @{task['start_s']:>7.3f}s  {task['name']}{thread}")
+            inside = f", in {task['parent']}" if task.get("nested") else ""
+            lines.append(f"  {task['ms']:>8.1f}ms  @{task['start_s']:>7.3f}s  "
+                         f"{task['name']}{thread}{inside}")
         # (the threshold is printed in the heading, so a --long-ms run is readable)
     else:
         lines.append(f"no task over {data['long_ms']:g}ms — the main thread was never "
