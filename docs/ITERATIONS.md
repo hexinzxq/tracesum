@@ -127,3 +127,9 @@
 - **改了什么**：`build()` 里每个长任务多 `nested` / `parent`（同一线程上被一个更长的长任务完整包住）；终端标题补 `, 1 nested inside a longer task`，行尾补 `, in Paint`；页面小字补「，在 Paint 内」。新增 1 条用例（`RunTask` 300ms 套 `FunctionCall` 60ms → 标题出现 `1 nested inside a longer task`、行里出现 `in RunTask`）。
 - **为什么**：真跑出来的——`Paint 100ms` 里套 `Layout 50ms` 时报告写 `longest tasks ≥50ms (2)`，读起来像**卡了两次**，其实是一次 100ms 的卡顿里的一次重排。DevTools 里这两条也并列，但它有时间轴，能看出包含关系；纯文本清单没有。
 - **验证**：42 个测试全过（HEAD 41）；`/tmp/nested.json` 现在是 `(2, 1 nested inside a longer task)` 且 Layout 行尾 `, in Paint`；`sloplint.py` 干净。
+
+## 2026-11-25 #5 一个名字被两个分项各算一次，得说出来
+
+- **改了什么**：`--kind` 合并名字时，若这个名字已经是另一个分项的默认名字，往 stderr 打 `note: Paint is already counted in paint; --kind script=Paint counts it twice`（照旧执行，不拦）；新增 1 条用例。
+- **为什么**：真跑出来的——`--kind script=Paint` 后输出 `script 100.0ms … paint 100.0ms`，下一行的 `note: bucket totals overlap by 150.0ms — nested tasks count once per name` **把原因赖给了嵌套**，而这次根本没有嵌套，是同一个名字被两边各算一次。解释错了比不解释更糟。
+- **验证**：43 个测试全过（HEAD 42）；`--kind script=Paint` 现在先打那行 note，再照常出报告；`--kind script=TimerFire`（没有冲突）不打 note。

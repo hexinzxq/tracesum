@@ -179,6 +179,13 @@ class ExitTests(unittest.TestCase):
         self.assertIn("1 nested inside a longer task", text)
         self.assertIn("in RunTask", text)
 
+    def test_kind_on_a_name_another_bucket_owns_says_so(self):
+        path = trace([event("Paint", 100_000)])
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            main([str(path), "--kind", "script=Paint"])
+        self.assertIn("note: Paint is already counted in paint", err.getvalue())
+
     def test_top_must_be_positive(self):
         path = trace([event("Small", 1_000)])
         self.assertEqual(main([str(path), "--top", "0"]), 2)

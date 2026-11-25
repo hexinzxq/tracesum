@@ -55,6 +55,13 @@ def main(argv: list[str] | None = None) -> int:
             print(f"tracesum: --kind wants BUCKET=NAME[,NAME] with BUCKET in "
                   f"{', '.join(KINDS)}, got {spec!r}", file=sys.stderr)
             return 2
+        for name in wanted:
+            for other, names_there in KINDS.items():
+                if other != bucket and name in names_there:
+                    # A name in two buckets gets counted twice; the overlap note
+                    # then blames nesting, which is not what happened.
+                    print(f"note: {name} is already counted in {other}; "
+                          f"--kind {bucket}={name} counts it twice", file=sys.stderr)
         kinds[bucket] = kinds.get(bucket, ()) + wanted
     path = Path(args.trace)
     try:
