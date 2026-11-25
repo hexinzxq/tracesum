@@ -103,3 +103,9 @@
 - **改了什么**：`--serve` 时先校验 `0 <= --port <= 65535`，否则 `tracesum: --port must be between 0 and 65535 (0 picks a free one)`、exit 2；`serve` 的异常分支同时收 `OverflowError`（`ThreadingHTTPServer` 在越界端口上抛的是它，不是 `OSError`）。新增 1 条用例（`--port 70000` / `-1` 都返回 2 且带这句提示）。
 - **为什么**：真跑出来的——`--serve --port 70000` 直接抛 `OverflowError: bind(): port must be 0-65535.` 加二十行 `socketserver` 栈。端口被占时早就是一句人话了（`cannot listen on … — Address already in use. Pass --port …`），**越界这个更简单的错误反而漏了**；而且它抛的异常类型不在原来 `except OSError` 的网里。
 - **验证**：37 个测试全过（HEAD 36）；`--port 70000` 与 `-1` 现在都只打一行提示、exit 2；`--port 0` 照旧自动挑空闲端口。
+
+## 2026-11-25 #1 四个分项加起来是 0，主线程却忙了一秒
+
+- **改了什么**：`Summary` 与 payload 多 `other_us` / `other_count`——主线程忙时减去 script/style/layout/paint 剩下的部分，终端分项行末尾加 `· other 1005.0ms`，有值时再补一句 `other: 15 tasks the four buckets do not name (timers, event dispatch, compositing, …)`；页面加 `other` chip。新增 1 条用例：`TimerFire` 100ms + `FunctionCall` 50ms（不重叠）→ 分项之和 == 主线程忙时、`other_us == 100000`。
+- **为什么**：真跑出来的——`/tmp/many.json`（15 个 `TimerFire` 长任务）打出 `busy 1005.0ms (35.0%)`，下一行 `script 0.0ms · style 0.0ms · layout 0.0ms · paint 0.0ms`。**四个分项加起来是 0，那 1005ms 去哪了没人说**；定时器回调、事件派发、合成这些本来就不在那四个名字里。
+- **验证**：38 个测试全过（HEAD 37）；`/tmp/many.json` 现在是 `… · paint 0.0ms · other 1005.0ms` + 一句解释；`/tmp/meta.json` 是 `script 100.0ms … other 0.0ms`（求和仍等于主线程 100ms）；`sloplint.py` 干净。

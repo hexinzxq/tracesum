@@ -23,6 +23,8 @@ def build(summary: Summary, top: int = 10, source: str = "", long_ms: float = 50
         "script_ms": round(summary.script_us / 1000, 1),
         "style_ms": round(summary.style_us / 1000, 1),
         "paint_ms": round(summary.paint_us / 1000, 1),
+        "other_ms": round(summary.other_us / 1000, 1),
+        "other_count": summary.other_count,
         "thread_total": len(summary.threads),
         "threads": [{"tid": thread.tid, "name": thread.name,
                      "busy_ms": round(thread.busy / 1000, 1),
@@ -52,8 +54,13 @@ def render(data: dict) -> str:
         f"  script {data['script_ms']:.1f}ms · style {data['style_ms']:.1f}ms · "
         f"layout {data['layout_ms']:.1f}ms in {data['layout_count']} "
         f"{'pass' if data['layout_count'] == 1 else 'passes'} · "
-        f"paint {data['paint_ms']:.1f}ms",
+        f"paint {data['paint_ms']:.1f}ms · other {data['other_ms']:.1f}ms",
     ]
+    if data.get("other_ms"):
+        # A bucket called "other" is only honest if it says what is in it.
+        count = data["other_count"]
+        lines.append(f"  other: {count} {'task' if count == 1 else 'tasks'} "
+                     f"the four buckets do not name (timers, event dispatch, compositing, …)")
     threads = data.get("threads") or []
     if len(threads) > 1:
         # The report is titled after "who is blocking the main thread"; the other

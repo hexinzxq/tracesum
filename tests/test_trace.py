@@ -18,6 +18,18 @@ def write(events) -> Path:
 
 
 class LoadTests(unittest.TestCase):
+    def test_the_buckets_add_up_to_the_main_thread(self):
+        events = [{"ph": "M", "name": "thread_name", "tid": 1,
+                   "args": {"name": "CrRendererMain"}},
+                  event("TimerFire", 100_000, tid=1),
+                  event("FunctionCall", 50_000, tid=1, ts=100_000)]
+        summary = summarise(events)
+        buckets = (summary.script_us + summary.style_us + summary.layout_us
+                   + summary.paint_us + summary.other_us)
+        self.assertAlmostEqual(buckets, summary.main.busy, places=3)
+        self.assertAlmostEqual(summary.other_us, 100_000, places=3)
+        self.assertAlmostEqual(summary.main.busy, 150_000, places=3)
+
     def test_a_bare_array_of_events(self):
         path = write([event("Task", 1000)])
         self.assertEqual(len(load(path)), 1)

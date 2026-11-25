@@ -47,6 +47,8 @@ class Summary:
     script_us: float
     style_us: float
     paint_us: float
+    other_us: float
+    other_count: int
     origin_us: float = 0.0
 
     @property
@@ -147,8 +149,17 @@ def summarise(events: list[dict], long_ms: float = 50.0) -> Summary:
     style = sum(task.dur for task in main.tasks if task.name == "UpdateLayoutTree")
     layout = [task for task in main.tasks if task.name == "Layout"]
     paint = sum(task.dur for task in main.tasks if task.name in ("Paint", "PrePaint"))
-    script = sum(task.dur for task in main.tasks
-                 if task.name in ("FunctionCall", "EvaluateScript", "v8.run"))
+    script_tasks = [task for task in main.tasks
+                    if task.name in ("FunctionCall", "EvaluateScript", "v8.run")]
+    script = sum(task.dur for task in script_tasks)
+    # Four named buckets used to sum to nothing on a timer-driven trace: the
+    # main thread was busy for a second and every bucket said 0.0ms. Keep the
+    # leftover explicit instead of letting the reader guess.
+    classified = style + sum(task.dur for task in layout) + paint + script
+    other = max(0.0, main.busy - classified)
+    other_count = sum(1 for task in main.tasks
+                      if task.name not in ("UpdateLayoutTree", "Layout", "Paint", "PrePaint",
+                                           "FunctionCall", "EvaluateScript", "v8.run"))
     return Summary(
         total_us=total,
         origin_us=min(starts),
@@ -159,4 +170,6 @@ def summarise(events: list[dict], long_ms: float = 50.0) -> Summary:
         script_us=script,
         style_us=style,
         paint_us=paint,
+        other_us=other,
+        other_count=other_count,
     )

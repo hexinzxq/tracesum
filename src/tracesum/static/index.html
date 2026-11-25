@@ -62,6 +62,7 @@ function draw(data) {
     : `${data.span_s}s 的 trace，主线程 ${data.main_tid}${named} 忙 ${data.busy_ms}ms（${data.busy_share}%）`;
   chips.innerHTML = [
     `<span class="chip">script <b>${data.script_ms}</b>ms</span>`,
+    ...(data.other_ms ? [`<span class="chip">other <b>${data.other_ms}</b>ms</span>`] : []),
     `<span class="chip">style <b>${data.style_ms}</b>ms</span>`,
     `<span class="chip">layout <b>${data.layout_ms}</b>ms · <b>${data.layout_count}</b> 次</span>`,
     `<span class="chip">paint <b>${data.paint_ms}</b>ms</span>`,
