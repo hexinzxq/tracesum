@@ -21,6 +21,7 @@ tracesum profile.json              # 人读的报告；有 >50ms 任务时 exit 
 tracesum profile.json --json       # 给脚本
 tracesum profile.json --top 5      # 只看最长的 5 个
 tracesum profile.json --long-ms 100 # 只把 ≥100ms 的当长任务（默认 50）
+tracesum profile.json --kind script=TimerFire,React:render  # 把自家/框架的事件名归到某个分项
 tracesum profile.json --serve      # 本地页面（默认 127.0.0.1:8765）
 ```
 

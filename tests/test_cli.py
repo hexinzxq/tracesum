@@ -147,6 +147,25 @@ class ExitTests(unittest.TestCase):
             main([str(path)])
         self.assertIn("bucket totals overlap by 50.0ms", out.getvalue())
 
+    def test_kind_moves_an_event_name_into_a_bucket(self):
+        events = [{"ph": "M", "name": "thread_name", "tid": 1,
+                   "args": {"name": "CrRendererMain"}},
+                  event("TimerFire", 100_000)]
+        path = trace(events)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            main([str(path), "--kind", "script=TimerFire"])
+        line = [row for row in out.getvalue().splitlines() if "script" in row][0]
+        self.assertIn("script 100.0ms", line)
+        self.assertIn("other 0.0ms", line)
+
+    def test_a_bad_kind_spec_is_a_sentence(self):
+        path = trace([event("A", 1_000)])
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            self.assertEqual(main([str(path), "--kind", "bogus=X"]), 2)
+        self.assertIn("--kind wants BUCKET=NAME", err.getvalue())
+
     def test_top_must_be_positive(self):
         path = trace([event("Small", 1_000)])
         self.assertEqual(main([str(path), "--top", "0"]), 2)

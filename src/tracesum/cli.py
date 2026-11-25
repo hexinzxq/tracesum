@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 from .report import build, render, verdict
-from .trace import TraceError, summarise, load
+from .trace import KINDS, TraceError, summarise, load
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -21,6 +21,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("trace", nargs="?", help="a trace JSON exported from the Performance panel")
     parser.add_argument("--top", type=int, default=10, metavar="N",
                         help="how many long tasks to list (default 10)")
+    parser.add_argument("--kind", action="append", default=[], metavar="BUCKET=NAME[,NAME]",
+                        help="add event names to a bucket (script, style, layout, paint)")
     parser.add_argument("--long-ms", type=float, default=50.0, metavar="MS",
                         help="what counts as a long task (default 50, the Web Vitals line)")
     parser.add_argument("--json", action="store_true", help="machine-readable output")
@@ -44,9 +46,19 @@ def main(argv: list[str] | None = None) -> int:
     if args.long_ms <= 0:
         print("tracesum: --long-ms must be a positive number", file=sys.stderr)
         return 2
+    kinds: dict[str, tuple[str, ...]] = {}
+    for spec in args.kind:
+        bucket, _, names = spec.partition("=")
+        bucket = bucket.strip()
+        wanted = tuple(name.strip() for name in names.split(",") if name.strip())
+        if bucket not in KINDS or not wanted:
+            print(f"tracesum: --kind wants BUCKET=NAME[,NAME] with BUCKET in "
+                  f"{', '.join(KINDS)}, got {spec!r}", file=sys.stderr)
+            return 2
+        kinds[bucket] = kinds.get(bucket, ()) + wanted
     path = Path(args.trace)
     try:
-        summary = summarise(load(path), long_ms=args.long_ms)
+        summary = summarise(load(path), long_ms=args.long_ms, kinds=kinds or None)
     except TraceError as error:
         if args.json:
             print(json.dumps({"error": str(error)}, ensure_ascii=False))

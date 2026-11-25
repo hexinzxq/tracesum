@@ -115,3 +115,9 @@
 - **改了什么**：payload 加 `overlap_ms`（分项之和 − 主线程忙时，负数取 0）；终端在它大于 0.05ms 时补一句 `note: bucket totals overlap by 50.0ms — nested tasks count once per name, so they can exceed busy time`；页面加一个「分项重叠 N ms」chip。新增 1 条用例（`Paint` 100ms 里套 `Layout` 50ms → 提示出现）。
 - **为什么**：上一轮刚让分项之和对上忙时，反例立刻出现——`Paint 100ms` 里套 `Layout 50ms` 时报 `busy 100.0ms`、`layout 50.0ms`、`paint 100.0ms`、`other 0.0ms`，**分项加起来 150ms，比线程忙时还多 50%**。按名字累加会把嵌套任务在每个名字里各算一次，这件事必须说出来，不能打印一个比忙时还大的和就完事。
 - **验证**：39 个测试全过（HEAD 38）；`/tmp/nested.json` 现在第二行下面有那行 note；`/tmp/many.json`（不重叠）不出现提示、`other 1005.0ms` 照旧；`sloplint.py` 干净。
+
+## 2026-11-25 #3 分项表不该只认识 Chrome 自己的名字
+
+- **改了什么**：`summarise(..., kinds=)` 与 `--kind BUCKET=NAME[,NAME]`（可重复，BUCKET 限 script/style/layout/paint）——把调用方自己的事件名并进对应分项，`other` 的判定同步用合并后的名字集合；README 用法加一行，新增 2 条用例（`--kind script=TimerFire` 让 1005ms 从 `other` 挪进 `script`；`--kind bogus=X` 给一句话、exit 2）。
+- **为什么**：上一轮把「没归类的 1005ms」摊成 `other` 之后，真实输入里的下一个问题就是**这 1005ms 到底叫什么**——`/tmp/many.json` 里全是 `TimerFire`，React/Vue 的 trace 里还有 `React:render` 这种名字，而分项表写死了六个 Chrome 名字，用户没有任何办法说「它算脚本时间」。
+- **验证**：41 个测试全过（HEAD 39）；`--kind script=TimerFire` 后分项行变 `script 1005.0ms … other 0.0ms`；非法 spec 打 `tracesum: --kind wants BUCKET=NAME[,NAME] with BUCKET in script, style, layout, paint, got 'bogus=X'`。

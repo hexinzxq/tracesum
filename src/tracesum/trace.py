@@ -107,7 +107,16 @@ def busy_time(tasks: list[Task]) -> float:
     return busy
 
 
-def summarise(events: list[dict], long_ms: float = 50.0) -> Summary:
+KINDS: dict[str, tuple[str, ...]] = {
+    "script": ("FunctionCall", "EvaluateScript", "v8.run"),
+    "style": ("UpdateLayoutTree",),
+    "layout": ("Layout",),
+    "paint": ("Paint", "PrePaint"),
+}
+
+
+def summarise(events: list[dict], long_ms: float = 50.0,
+              kinds: dict[str, tuple[str, ...]] | None = None) -> Summary:
     """Aggregate complete events by thread, and bucket the main-thread work by kind."""
     by_thread: dict[int, Thread] = {}
     starts: list[float] = []
@@ -146,20 +155,23 @@ def summarise(events: list[dict], long_ms: float = 50.0) -> Summary:
                         key=lambda task: task.dur, reverse=True)
     # Style recalc and layout are different passes: counting UpdateLayoutTree as
     # layout as well puts the same milliseconds in two buckets.
-    style = sum(task.dur for task in main.tasks if task.name == "UpdateLayoutTree")
-    layout = [task for task in main.tasks if task.name == "Layout"]
-    paint = sum(task.dur for task in main.tasks if task.name in ("Paint", "PrePaint"))
-    script_tasks = [task for task in main.tasks
-                    if task.name in ("FunctionCall", "EvaluateScript", "v8.run")]
+    # `--kind` lets a caller add names the four defaults do not know (a framework's
+    # own markers): the buckets are a mapping, not a closed set of Chrome names.
+    mapping = {bucket: set(names) for bucket, names in KINDS.items()}
+    for bucket, names in (kinds or {}).items():
+        mapping[bucket].update(names)
+    named = {name for names in mapping.values() for name in names}
+    style = sum(task.dur for task in main.tasks if task.name in mapping["style"])
+    layout = [task for task in main.tasks if task.name in mapping["layout"]]
+    paint = sum(task.dur for task in main.tasks if task.name in mapping["paint"])
+    script_tasks = [task for task in main.tasks if task.name in mapping["script"]]
     script = sum(task.dur for task in script_tasks)
     # Four named buckets used to sum to nothing on a timer-driven trace: the
     # main thread was busy for a second and every bucket said 0.0ms. Keep the
     # leftover explicit instead of letting the reader guess.
     classified = style + sum(task.dur for task in layout) + paint + script
     other = max(0.0, main.busy - classified)
-    other_count = sum(1 for task in main.tasks
-                      if task.name not in ("UpdateLayoutTree", "Layout", "Paint", "PrePaint",
-                                           "FunctionCall", "EvaluateScript", "v8.run"))
+    other_count = sum(1 for task in main.tasks if task.name not in named)
     return Summary(
         total_us=total,
         origin_us=min(starts),
