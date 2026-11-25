@@ -25,6 +25,9 @@ def build(summary: Summary, top: int = 10, source: str = "", long_ms: float = 50
         "paint_ms": round(summary.paint_us / 1000, 1),
         "other_ms": round(summary.other_us / 1000, 1),
         "other_count": summary.other_count,
+        "overlap_ms": round(max(0.0, (summary.script_us + summary.style_us
+                                      + summary.layout_us + summary.paint_us
+                                      + summary.other_us) / 1000 - summary.main.busy / 1000), 1),
         "thread_total": len(summary.threads),
         "threads": [{"tid": thread.tid, "name": thread.name,
                      "busy_ms": round(thread.busy / 1000, 1),
@@ -56,6 +59,11 @@ def render(data: dict) -> str:
         f"{'pass' if data['layout_count'] == 1 else 'passes'} · "
         f"paint {data['paint_ms']:.1f}ms · other {data['other_ms']:.1f}ms",
     ]
+    if data.get("overlap_ms"):
+        # Summing by name counts a nested task once per name; say so instead of
+        # printing a total larger than the thread's busy time with no comment.
+        lines.append(f"  note: bucket totals overlap by {data['overlap_ms']:.1f}ms "
+                     f"— nested tasks count once per name, so they can exceed busy time")
     if data.get("other_ms"):
         # A bucket called "other" is only honest if it says what is in it.
         count = data["other_count"]

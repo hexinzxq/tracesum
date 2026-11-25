@@ -136,6 +136,17 @@ class ExitTests(unittest.TestCase):
                 self.assertEqual(main([str(path), "--serve", "--port", port]), 2)
             self.assertIn("--port must be between 0 and 65535", err.getvalue())
 
+    def test_buckets_that_overlap_say_so(self):
+        events = [{"ph": "M", "name": "thread_name", "tid": 1,
+                   "args": {"name": "CrRendererMain"}},
+                  event("Paint", 100_000, ts=0),
+                  event("Layout", 50_000, ts=20_000)]
+        path = trace(events)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            main([str(path)])
+        self.assertIn("bucket totals overlap by 50.0ms", out.getvalue())
+
     def test_top_must_be_positive(self):
         path = trace([event("Small", 1_000)])
         self.assertEqual(main([str(path), "--top", "0"]), 2)

@@ -63,6 +63,7 @@ function draw(data) {
   chips.innerHTML = [
     `<span class="chip">script <b>${data.script_ms}</b>ms</span>`,
     ...(data.other_ms ? [`<span class="chip">other <b>${data.other_ms}</b>ms</span>`] : []),
+    ...(data.overlap_ms ? [`<span class="chip">分项重叠 <b>${data.overlap_ms}</b>ms</span>`] : []),
     `<span class="chip">style <b>${data.style_ms}</b>ms</span>`,
     `<span class="chip">layout <b>${data.layout_ms}</b>ms · <b>${data.layout_count}</b> 次</span>`,
     `<span class="chip">paint <b>${data.paint_ms}</b>ms</span>`,

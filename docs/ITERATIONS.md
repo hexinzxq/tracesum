@@ -109,3 +109,9 @@
 - **改了什么**：`Summary` 与 payload 多 `other_us` / `other_count`——主线程忙时减去 script/style/layout/paint 剩下的部分，终端分项行末尾加 `· other 1005.0ms`，有值时再补一句 `other: 15 tasks the four buckets do not name (timers, event dispatch, compositing, …)`；页面加 `other` chip。新增 1 条用例：`TimerFire` 100ms + `FunctionCall` 50ms（不重叠）→ 分项之和 == 主线程忙时、`other_us == 100000`。
 - **为什么**：真跑出来的——`/tmp/many.json`（15 个 `TimerFire` 长任务）打出 `busy 1005.0ms (35.0%)`，下一行 `script 0.0ms · style 0.0ms · layout 0.0ms · paint 0.0ms`。**四个分项加起来是 0，那 1005ms 去哪了没人说**；定时器回调、事件派发、合成这些本来就不在那四个名字里。
 - **验证**：38 个测试全过（HEAD 37）；`/tmp/many.json` 现在是 `… · paint 0.0ms · other 1005.0ms` + 一句解释；`/tmp/meta.json` 是 `script 100.0ms … other 0.0ms`（求和仍等于主线程 100ms）；`sloplint.py` 干净。
+
+## 2026-11-25 #2 分项之和能超过主线程忙时
+
+- **改了什么**：payload 加 `overlap_ms`（分项之和 − 主线程忙时，负数取 0）；终端在它大于 0.05ms 时补一句 `note: bucket totals overlap by 50.0ms — nested tasks count once per name, so they can exceed busy time`；页面加一个「分项重叠 N ms」chip。新增 1 条用例（`Paint` 100ms 里套 `Layout` 50ms → 提示出现）。
+- **为什么**：上一轮刚让分项之和对上忙时，反例立刻出现——`Paint 100ms` 里套 `Layout 50ms` 时报 `busy 100.0ms`、`layout 50.0ms`、`paint 100.0ms`、`other 0.0ms`，**分项加起来 150ms，比线程忙时还多 50%**。按名字累加会把嵌套任务在每个名字里各算一次，这件事必须说出来，不能打印一个比忙时还大的和就完事。
+- **验证**：39 个测试全过（HEAD 38）；`/tmp/nested.json` 现在第二行下面有那行 note；`/tmp/many.json`（不重叠）不出现提示、`other 1005.0ms` 照旧；`sloplint.py` 干净。
