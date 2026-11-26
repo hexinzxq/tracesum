@@ -186,6 +186,18 @@ class ExitTests(unittest.TestCase):
             main([str(path), "--kind", "script=Paint"])
         self.assertIn("note: Paint is already counted in paint", err.getvalue())
 
+    def test_long_ms_reaches_the_neighbour_flags(self):
+        events = [{"ph": "M", "name": "thread_name", "tid": 1,
+                   "args": {"name": "CrRendererMain"}},
+                  event("Big", 200_000, ts=0), event("Small", 60_000, ts=210_000)]
+        path = trace(events)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            main([str(path), "--long-ms", "100", "--json"])
+        data = json.loads(out.getvalue())
+        flags = {item["name"]: item["long"] for item in data["long_tasks"][0]["nearby"]}
+        self.assertFalse(flags["Small"], "60ms is not long when --long-ms is 100")
+
     def test_top_must_be_positive(self):
         path = trace([event("Small", 1_000)])
         self.assertEqual(main([str(path), "--top", "0"]), 2)

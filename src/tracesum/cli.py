@@ -72,7 +72,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print(f"tracesum: {error}", file=sys.stderr)
         return 2
-    data = build(summary, args.top, str(path))
+    data = build(summary, args.top, str(path), long_ms=args.long_ms)
     data["long_ms"] = args.long_ms
     # The page polls every few seconds but the trace is read once: say when, so a
     # re-exported file that changes nothing is not mistaken for live data.

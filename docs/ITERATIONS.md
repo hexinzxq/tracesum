@@ -151,3 +151,9 @@
 - **改了什么**：`Handler` 读 `static/index.html` 时捕获 `FileNotFoundError` / `OSError`，回 500 + `{"error": "the installed package has no page (tracesum/static/index.html) — reinstall tracesum"}`，不再让异常冒到 `http.server` 里掐断连接；新增 1 条用例（把 `resources.files` 换成会抛 `FileNotFoundError` 的假对象，断言 500 与那句文案）。
 - **为什么**：`diffbrief` 那边已经因为同一件事修过一次（包数据丢了就 500 带一句话），tracesum 的 `server.py` 是照同一套写的，**但没有那条分支**——`pip install` 时如果漏了 `package-data`，`GET /` 就是一条 traceback，用户只看到「页面打不开」。
 - **验证**：50 个测试全过（HEAD 49）；`/api/report` 与 404 的既有用例不受影响。
+
+## 2026-11-26 #4 --long-ms 改了阈值，邻居的「也是长任务」标记没跟上
+
+- **改了什么**：`cli` 调 `build(...)` 时把 `args.long_ms` 传进去（`build` 早就收这个参数，只是调用方漏了），于是 `nearby` 里每个邻居的 `long` 标记按真实阈值算；新增 1 条用例（`--long-ms 100` 下 60ms 的邻居必须 `long: false`）。
+- **为什么**：真跑出来的——`--long-ms 100` 时报告只有一条长任务，但它的邻居里 `60ms` 的 `Small` 被标成 `long: true`，和「长任务 ≥100ms」的判据自相矛盾；页面上会显示一个「长」的 60ms 事件。
+- **验证**：51 个测试全过（HEAD 50）；`/tmp/lm.json --long-ms 100` 现在是 `[('Small', False)]`；默认 50 时行为不变。
