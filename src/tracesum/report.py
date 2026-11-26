@@ -4,9 +4,30 @@ from __future__ import annotations
 from .trace import Summary
 
 
+NEAR_US = 200_000
+
+
+def nearby(task, tasks, long_ms: float = 50.0, limit: int = 12) -> list[dict]:
+    """What else ran on this thread right around a long task.
+
+    A 300ms `RunTask` alone does not say what it was doing; the tasks around it do,
+    and they are already in the trace the page is showing.
+    """
+    start, end = task.start - NEAR_US, task.start + task.dur + NEAR_US
+    around = [other for other in tasks
+              if other is not task and other.tid == task.tid
+              and other.start + other.dur >= start and other.start <= end]
+    around.sort(key=lambda other: other.start)
+    return [{"name": other.name, "ms": round(other.ms, 1),
+             "start_s": round((other.start - task.start) / 1_000_000, 3),
+             "long": other.dur >= long_ms * 1000} for other in around[:limit]]
+
+
 def build(summary: Summary, top: int = 10, source: str = "", long_ms: float = 50.0) -> dict:
     main = summary.main
     names = {thread.tid: thread.name for thread in summary.threads if thread.name}
+
+    summary_long_ms = long_ms
 
     def parent_of(task):
         # A 60ms child inside a 300ms parent is part of one hitch, not a second one.
@@ -52,7 +73,9 @@ def build(summary: Summary, top: int = 10, source: str = "", long_ms: float = 50
                         # of seconds and matches nothing on screen
                         "start_s": round((task.start - summary.origin_us) / 1_000_000, 3),
                         "ts_us": int(task.start),
-                        "thread": names.get(task.tid, f"tid {task.tid}")}
+                        "thread": names.get(task.tid, f"tid {task.tid}"),
+                        "nearby": nearby(task, [t for thread in summary.threads
+                                                for t in thread.tasks], summary_long_ms)}
                        for task in summary.long_tasks[:top]],
     }
 

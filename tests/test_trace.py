@@ -3,6 +3,7 @@ from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from tracesum.report import build
 from tracesum.trace import TraceError, load, summarise
 
 
@@ -18,6 +19,16 @@ def write(events) -> Path:
 
 
 class LoadTests(unittest.TestCase):
+    def test_a_long_task_carries_what_ran_around_it(self):
+        events = [event("RunTask", 300_000, ts=0, tid=1),
+                  event("Before", 5_000, ts=-10_000, tid=1),
+                  event("After", 5_000, ts=310_000, tid=1),
+                  event("Far", 5_000, ts=900_000, tid=1),
+                  event("Other thread", 5_000, ts=10_000, tid=2)]
+        data = build(summarise(events))
+        names = [item["name"] for item in data["long_tasks"][0]["nearby"]]
+        self.assertEqual(names, ["Before", "After"])   # ±200ms, same thread only
+
     def test_the_buckets_add_up_to_the_main_thread(self):
         events = [{"ph": "M", "name": "thread_name", "tid": 1,
                    "args": {"name": "CrRendererMain"}},

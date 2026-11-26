@@ -61,6 +61,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn("text/html", headers["Content-Type"])
         self.assertIn(b'id="chips"', body)
         self.assertIn(b"/api/report", body)
+        self.assertIn(b"nearby", body)
 
     def test_an_unknown_path_is_json_404(self):
         with self.assertRaises(urllib.error.HTTPError) as caught:

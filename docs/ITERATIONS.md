@@ -139,3 +139,9 @@
 - **改了什么**：新增 `tests/test_server.py` 五条——`/api/report` 原样返回 payload 且带 `Cache-Control: no-store`、handler 在 build 没给 `read_at` 时补上时间、`/` 返回安装包里的那份 HTML、未知路径是 JSON 404、带查询串的 `/` 仍是页面。顺手改页面两处：`other` / `分项重叠` 两个 chip 加 `title` 解释（终端有文字说明，页面只有一个数字），长任务为空时把标题藏起来（原来「最长的任务（共 0）」压在「没有超时任务」上面像自相矛盾）。
 - **为什么**：`server.py` 从第一版起就没有一条测试——终端和 JSON 每次改动都有断言，**`--serve` 的页面是唯一没被验证过的出口**；今天给 chip 加 title 时才意识到改它没有任何东西会失败。
 - **验证**：48 个测试全过（HEAD 43，新增 5 条）；`sloplint.py` 扫页面仍然干净；`/api/report` 的 `read_at` 断言用 `^\d\d:\d\d:\d\d$`。
+
+## 2026-11-26 #2 长任务旁边发生了什么，页面上能点开看
+
+- **改了什么**：`report.nearby(task, tasks, long_ms)` 取出同一线程上、长任务前后 ±200ms 内的事件（最多 12 个，按起点排序，标出哪些本身也是长任务）；`build()` 给每个长任务挂 `nearby`；页面在每个长任务下加 `<details>`「前后 200ms 的 N 个事件」，`+0.310s` 表示之后、`-0.010s` 表示之前。新增 1 条用例（±200ms 同线程过滤、别线程和远处事件不进来），页面测试补一句断言源码里有 `nearby`。
+- **为什么**：README 待办里的第三条，也是真需求——一条 `300.0ms RunTask` 单独看**不告诉你它在忙什么**，而前后那几个 `FunctionCall` / `UpdateLayoutTree` 才是能拿去搜代码的线索；这些事件本来就在 trace 里，只是报告没给。
+- **验证**：49 个测试全过（HEAD 48）；`/tmp/nested.json --json` 里 `Paint` 的 `nearby` 是那条 `Layout`、`Layout` 的 `nearby` 是 `Paint`；`sloplint.py` 干净。
