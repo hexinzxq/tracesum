@@ -133,3 +133,9 @@
 - **改了什么**：`--kind` 合并名字时，若这个名字已经是另一个分项的默认名字，往 stderr 打 `note: Paint is already counted in paint; --kind script=Paint counts it twice`（照旧执行，不拦）；新增 1 条用例。
 - **为什么**：真跑出来的——`--kind script=Paint` 后输出 `script 100.0ms … paint 100.0ms`，下一行的 `note: bucket totals overlap by 150.0ms — nested tasks count once per name` **把原因赖给了嵌套**，而这次根本没有嵌套，是同一个名字被两边各算一次。解释错了比不解释更糟。
 - **验证**：43 个测试全过（HEAD 42）；`--kind script=Paint` 现在先打那行 note，再照常出报告；`--kind script=TimerFire`（没有冲突）不打 note。
+
+## 2026-11-26 #1 HTTP 那一半一直没有测试
+
+- **改了什么**：新增 `tests/test_server.py` 五条——`/api/report` 原样返回 payload 且带 `Cache-Control: no-store`、handler 在 build 没给 `read_at` 时补上时间、`/` 返回安装包里的那份 HTML、未知路径是 JSON 404、带查询串的 `/` 仍是页面。顺手改页面两处：`other` / `分项重叠` 两个 chip 加 `title` 解释（终端有文字说明，页面只有一个数字），长任务为空时把标题藏起来（原来「最长的任务（共 0）」压在「没有超时任务」上面像自相矛盾）。
+- **为什么**：`server.py` 从第一版起就没有一条测试——终端和 JSON 每次改动都有断言，**`--serve` 的页面是唯一没被验证过的出口**；今天给 chip 加 title 时才意识到改它没有任何东西会失败。
+- **验证**：48 个测试全过（HEAD 43，新增 5 条）；`sloplint.py` 扫页面仍然干净；`/api/report` 的 `read_at` 断言用 `^\d\d:\d\d:\d\d$`。

@@ -62,8 +62,9 @@ function draw(data) {
     : `${data.span_s}s 的 trace，主线程 ${data.main_tid}${named} 忙 ${data.busy_ms}ms（${data.busy_share}%）`;
   chips.innerHTML = [
     `<span class="chip">script <b>${data.script_ms}</b>ms</span>`,
-    ...(data.other_ms ? [`<span class="chip">other <b>${data.other_ms}</b>ms</span>`] : []),
-    ...(data.overlap_ms ? [`<span class="chip">分项重叠 <b>${data.overlap_ms}</b>ms</span>`] : []),
+    // The terminal explains what "other" holds; a bare number on the page does not.
+    ...(data.other_ms ? [`<span class="chip" title="定时器、事件派发、合成等四个分项没归类的 ${data.other_count} 个任务">other <b>${data.other_ms}</b>ms</span>`] : []),
+    ...(data.overlap_ms ? [`<span class="chip" title="嵌套任务在每个名字下各算一次，所以分项之和会超过主线程忙时">分项重叠 <b>${data.overlap_ms}</b>ms</span>`] : []),
     `<span class="chip">style <b>${data.style_ms}</b>ms</span>`,
     `<span class="chip">layout <b>${data.layout_ms}</b>ms · <b>${data.layout_count}</b> 次</span>`,
     `<span class="chip">paint <b>${data.paint_ms}</b>ms</span>`,
@@ -82,6 +83,9 @@ function draw(data) {
   // The terminal has said "N of M shown" and "N not on the main thread" for a
   // while; the page still said only "最长的任务", so both numbers were invisible here.
   if (longHead) {
+    // An empty list does not get a heading: "最长的任务（共 0）" over "没有超时任务"
+    // reads like the second line contradicts the first.
+    longHead.hidden = !(data.long_tasks && data.long_tasks.length);
     const shown = data.long_tasks ? data.long_tasks.length : 0;
     const total = data.long_count || 0;
     const counted = total > shown ? `显示前 ${shown} / 共 ${total}` : `共 ${total}`;
