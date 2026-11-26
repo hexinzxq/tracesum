@@ -103,7 +103,10 @@ function draw(data) {
       const near = (task.nearby || []).map((other) =>
         `<li>${other.start_s >= 0 ? "+" : ""}${other.start_s}s · <b>${other.ms}</b>ms · ${esc(other.name)}</li>`).join("");
       return `<li><b>${task.ms}</b>ms · @${task.start_s}s · ${esc(task.name)} <small>${esc(task.thread || "tid " + task.tid)}${task.nested ? "，在 " + esc(task.parent) + " 内" : ""}</small>`
-        + (near ? `<details><summary>前后 200ms 的 ${(task.nearby || []).length} 个事件</summary><ul>${near}</ul></details>` : "")
+        + (near ? `<details><summary>前后 200ms 的 ${(task.nearby || []).length} 个事件`
+                  + ((task.nearby_total || 0) > (task.nearby || []).length
+                     ? `（显示 ${(task.nearby || []).length} / 共 ${task.nearby_total}）` : "")
+                  + `</summary><ul>${near}</ul></details>` : "")
         + `</li>`;
     }).join("");
   }

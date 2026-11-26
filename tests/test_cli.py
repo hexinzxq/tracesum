@@ -198,6 +198,19 @@ class ExitTests(unittest.TestCase):
         flags = {item["name"]: item["long"] for item in data["long_tasks"][0]["nearby"]}
         self.assertFalse(flags["Small"], "60ms is not long when --long-ms is 100")
 
+    def test_a_crowded_neighbourhood_says_how_many_there_were(self):
+        events = [{"ph": "M", "name": "thread_name", "tid": 1,
+                   "args": {"name": "CrRendererMain"}},
+                  event("Big", 100_000, ts=0)]
+        events += [event(f"Small{i}", 1_000, ts=100_000 + i * 2_000) for i in range(20)]
+        path = trace(events)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            main([str(path), "--json"])
+        task = json.loads(out.getvalue())["long_tasks"][0]
+        self.assertEqual(len(task["nearby"]), 12)
+        self.assertEqual(task["nearby_total"], 20)
+
     def test_top_must_be_positive(self):
         path = trace([event("Small", 1_000)])
         self.assertEqual(main([str(path), "--top", "0"]), 2)

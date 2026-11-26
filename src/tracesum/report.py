@@ -7,7 +7,7 @@ from .trace import Summary
 NEAR_US = 200_000
 
 
-def nearby(task, tasks, long_ms: float = 50.0, limit: int = 12) -> list[dict]:
+def nearby(task, tasks, long_ms: float = 50.0) -> list[dict]:
     """What else ran on this thread right around a long task.
 
     A 300ms `RunTask` alone does not say what it was doing; the tasks around it do,
@@ -20,12 +20,28 @@ def nearby(task, tasks, long_ms: float = 50.0, limit: int = 12) -> list[dict]:
     around.sort(key=lambda other: other.start)
     return [{"name": other.name, "ms": round(other.ms, 1),
              "start_s": round((other.start - task.start) / 1_000_000, 3),
-             "long": other.dur >= long_ms * 1000} for other in around[:limit]]
+             "long": other.dur >= long_ms * 1000} for other in around]
 
 
 def build(summary: Summary, top: int = 10, source: str = "", long_ms: float = 50.0) -> dict:
     main = summary.main
     names = {thread.tid: thread.name for thread in summary.threads if thread.name}
+    every_task = [task for thread in summary.threads for task in thread.tasks]
+
+    def _long_task(task) -> dict:
+        around = nearby(task, every_task, long_ms)
+        return {"name": task.name, "ms": round(task.ms, 1), "tid": task.tid,
+                "nested": bool(parent_of(task)),
+                "parent": parent_of(task).name if parent_of(task) else "",
+                # relative to the trace's first event, like the DevTools timeline:
+                # an absolute ts from process start is thousands of seconds
+                "start_s": round((task.start - summary.origin_us) / 1_000_000, 3),
+                "ts_us": int(task.start),
+                "thread": names.get(task.tid, f"tid {task.tid}"),
+                # Capped at 12 for the page; say how many there were, the same way
+                # the thread list and the long-task list say it.
+                "nearby": around[:12],
+                "nearby_total": len(around)}
 
     summary_long_ms = long_ms
 
@@ -65,18 +81,7 @@ def build(summary: Summary, top: int = 10, source: str = "", long_ms: float = 50
         "long_ms": long_ms,
         "main_long_count": sum(1 for task in summary.long_tasks if task.tid == main.tid),
         "long_nested_count": sum(1 for task in summary.long_tasks if parent_of(task)),
-        "long_tasks": [{"name": task.name, "ms": round(task.ms, 1), "tid": task.tid,
-                        "nested": bool(parent_of(task)),
-                        "parent": parent_of(task).name if parent_of(task) else "",
-                        # relative to the trace's first event, like the DevTools
-                        # timeline: an absolute ts from process start is thousands
-                        # of seconds and matches nothing on screen
-                        "start_s": round((task.start - summary.origin_us) / 1_000_000, 3),
-                        "ts_us": int(task.start),
-                        "thread": names.get(task.tid, f"tid {task.tid}"),
-                        "nearby": nearby(task, [t for thread in summary.threads
-                                                for t in thread.tasks], summary_long_ms)}
-                       for task in summary.long_tasks[:top]],
+        "long_tasks": [_long_task(task) for task in summary.long_tasks[:top]],
     }
 
 
