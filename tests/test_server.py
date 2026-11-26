@@ -5,6 +5,7 @@ import urllib.error
 import urllib.request
 from http.server import ThreadingHTTPServer
 
+from tracesum import server
 from tracesum.server import make_handler
 
 
@@ -62,6 +63,22 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b'id="chips"', body)
         self.assertIn(b"/api/report", body)
         self.assertIn(b"nearby", body)
+
+    def test_a_package_without_the_page_says_so(self):
+        original = server.resources.files
+
+        class Empty:
+            def joinpath(self, _name):
+                raise FileNotFoundError("static/index.html")
+
+        server.resources.files = lambda _package: Empty()
+        try:
+            with self.assertRaises(urllib.error.HTTPError) as caught:
+                get(self.port, "/")
+            self.assertEqual(caught.exception.code, 500)
+            self.assertIn("reinstall tracesum", json.loads(caught.exception.read())["error"])
+        finally:
+            server.resources.files = original
 
     def test_an_unknown_path_is_json_404(self):
         with self.assertRaises(urllib.error.HTTPError) as caught:
