@@ -169,3 +169,9 @@
 - **改了什么**：`load()` 用 `encoding="utf-8-sig"` 读文件，带 UTF-8 BOM 的 trace 正常解析；新增 1 条用例（`\xef\xbb\xbf` + 合法 `traceEvents`）。
 - **为什么**：真跑出来的——`/tmp/bom.json`（BOM + 一份正常 trace）报 `tracesum: /tmp/bom.json is not JSON: Unexpected UTF-8 BOM (decode using utf-8-sig) at line 1`；那句话是 Python 的说法，**命令行用户照着做不了**，而文件本身是好的，一个字节的差异不该让整份 trace 读不了。
 - **验证**：53 个测试全过（HEAD 52）；`/tmp/bom.json` 现在正常出报告（`0.100s of trace, main thread 1 (CrRendererMain) busy 100.0ms`）。
+
+## 2026-11-27 #2 --json 和 --serve 一起给，会静默开一台服务器
+
+- **改了什么**：参数校验里加一条 `if args.serve and args.json`，打 `tracesum: --json prints the report and --serve blocks on a page; pick one (the page serves the same JSON at /api/report)`、exit 2；新增 1 条用例。
+- **为什么**：真跑出来的——`tracesum /tmp/sv.json --serve --json --port 0` 一个 JSON 都不打，只打 banner 然后一直挂着；`--json` 是给脚本解析的，而 `--serve` 永远不返回，两者一起给时 `--json` 被悄悄吞掉，**调用方会以为拿到了一份报告**，实际是挂住。
+- **验证**：54 个测试全过（HEAD 53）；现在那组参数 exit 2；`--json` 单独用、`--serve` 单独用都不变。

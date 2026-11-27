@@ -211,6 +211,13 @@ class ExitTests(unittest.TestCase):
         self.assertEqual(len(task["nearby"]), 12)
         self.assertEqual(task["nearby_total"], 20)
 
+    def test_json_and_serve_cannot_be_asked_for_at_once(self):
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            code = main(["/tmp/sv.json", "--json", "--serve"])
+        self.assertEqual(code, 2)
+        self.assertIn("pick one", err.getvalue())
+
     def test_top_must_be_positive(self):
         path = trace([event("Small", 1_000)])
         self.assertEqual(main([str(path), "--top", "0"]), 2)

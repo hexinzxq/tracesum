@@ -43,6 +43,12 @@ def main(argv: list[str] | None = None) -> int:
         print("tracesum: --port must be between 0 and 65535 (0 picks a free one)",
               file=sys.stderr)
         return 2
+    if args.serve and args.json:
+        # `--json` looks like output the caller can parse; `--serve` blocks
+        # forever. Picking one of them silently is how a script hangs.
+        print("tracesum: --json prints the report and --serve blocks on a page; "
+              "pick one (the page serves the same JSON at /api/report)", file=sys.stderr)
+        return 2
     if args.long_ms <= 0:
         print("tracesum: --long-ms must be a positive number", file=sys.stderr)
         return 2
