@@ -187,3 +187,9 @@
 - **改了什么**：读完 trace 后把 `--kind` 里用户给的每个名字跟实际事件名比一遍，缺的打 `note: --kind script=TimerFire matched no event in this trace`（stderr，不影响退出码）；新增 1 条用例（不存在的名字 → note；空 bucket 不算错误，exit 0）。
 - **为什么**：真跑出来的——`tracesum /tmp/sv.json --kind script=TimerFire` 的输出与不加 flag 一字不差：`script 0.0ms`，没有哪个字说「TimerFire 根本没出现」。这和 diffbrief 里 `--exclude` / `--path` 没命中时补 note 是同一类隐瞒。
 - **验证**：55 个测试全过（HEAD 54）；`/tmp/sv.json` 现在 stderr 有那行 note，stdout 报告不变；命中时（如 `--kind paint=Paint`）不打印。
+
+## 2026-11-27 #5 tid 是个对象的时候，抛的是 TypeError 二十行栈
+
+- **改了什么**：新增 `_tid(event)`——`tid` 缺失按线程 0（有些 trace 就这样），存在但读不成整数就抛 `TraceError: a complete event (A) has an unusable tid {'x': 1} — this does not look like a Chrome trace`；`summarise` 里两处 `int(event.get("tid") or 0)` 全部换掉；新增 2 条用例（对象 tid → 一句话；没有 tid → 线程 0）。
+- **为什么**：真跑出来的——`printf '{"traceEvents": [{"ph":"X","name":"A","dur":1000,"ts":0,"tid":{"x":1}}]}'` 直接 `TypeError: int() argument must be … not 'dict'` + 栈；Chrome 写数字，但手改过的导出和其它工具会写字符串或对象，**能读的说清、不能读的给一句话，别让 Python 的异常类型当门面**。
+- **验证**：57 个测试全过（HEAD 55）；`/tmp/badtid.json` 现在 `tracesum: a complete event (A) has an unusable tid {'x': 1} — this does not look like a Chrome trace`、exit 2。

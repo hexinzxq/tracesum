@@ -91,6 +91,25 @@ def load(path: Path) -> list[dict]:
     return events
 
 
+def _tid(event: dict) -> int:
+    """A tid we can group by, or a sentence instead of a TypeError.
+
+    Chrome writes a number. Hand-trimmed exports sometimes carry a string, and
+    other tools carry an object; `int({...})` used to end a run in a traceback.
+    A missing tid is thread 0 (valid in some traces); one that is present but
+    unreadable is not something to guess about.
+    """
+    raw = event.get("tid")
+    if raw is None:
+        return 0
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        name = event.get("name") or event.get("cat") or "?"
+        raise TraceError(f"a complete event ({name}) has an unusable tid {raw!r} "
+                         f"— this does not look like a Chrome trace") from None
+
+
 def busy_time(tasks: list[Task]) -> float:
     """How long the thread was busy: the union of its task intervals.
 
@@ -129,13 +148,12 @@ def summarise(events: list[dict], long_ms: float = 50.0,
         # and a report that guesses from busy time gets renderer-vs-worker wrong.
         if (event.get("ph") == "M" and event.get("name") == "thread_name"
                 and isinstance(event.get("args"), dict)):
-            tid = int(event.get("tid") or 0)
-            names[tid] = str(event["args"].get("name") or "")
+            names[_tid(event)] = str(event["args"].get("name") or "")
     for event in events:
         dur = event.get("dur")
         if event.get("ph") != "X" or not isinstance(dur, (int, float)) or dur <= 0:
             continue
-        tid = int(event.get("tid") or 0)
+        tid = _tid(event)
         start = float(event.get("ts") or 0)
         thread = by_thread.setdefault(tid, Thread(tid, name=names.get(tid, "")))
         task = Task(str(event.get("name") or event.get("cat") or "?"), float(dur), tid, start)

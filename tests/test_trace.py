@@ -19,6 +19,15 @@ def write(events) -> Path:
 
 
 class LoadTests(unittest.TestCase):
+    def test_an_unreadable_tid_is_a_sentence(self):
+        with self.assertRaises(TraceError) as caught:
+            summarise([{"ph": "X", "name": "A", "dur": 1000, "ts": 0, "tid": {"x": 1}}])
+        self.assertIn("unusable tid", str(caught.exception))
+
+    def test_a_missing_tid_is_thread_zero(self):
+        summary = summarise([{"ph": "X", "name": "A", "dur": 1000, "ts": 0}])
+        self.assertEqual(summary.threads[0].tid, 0)
+
     def test_a_trace_saved_with_a_bom_still_loads(self):
         path = Path(tempfile.mkdtemp()) / "bom.json"
         path.write_bytes(b"\xef\xbb\xbf" + json.dumps(
