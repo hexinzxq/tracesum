@@ -175,3 +175,9 @@
 - **改了什么**：参数校验里加一条 `if args.serve and args.json`，打 `tracesum: --json prints the report and --serve blocks on a page; pick one (the page serves the same JSON at /api/report)`、exit 2；新增 1 条用例。
 - **为什么**：真跑出来的——`tracesum /tmp/sv.json --serve --json --port 0` 一个 JSON 都不打，只打 banner 然后一直挂着；`--json` 是给脚本解析的，而 `--serve` 永远不返回，两者一起给时 `--json` 被悄悄吞掉，**调用方会以为拿到了一份报告**，实际是挂住。
 - **验证**：54 个测试全过（HEAD 53）；现在那组参数 exit 2；`--json` 单独用、`--serve` 单独用都不变。
+
+## 2026-11-27 #3 页面写着「主线程」判据，列表里却有 worker 的长任务
+
+- **改了什么**：页面页脚从「判据：主线程上 ≥50ms 的完整事件」改成「长任务：同一线程上 ≥Nms 的完整事件；只有主线程上的才会让退出码变 1」；`tests/test_server.py` 的页面断言加了这句，防止又改回去。
+- **为什么**：`long_tasks` 一直包含非主线程的长任务（终端标题也写「1, 1 not on the main thread」），页脚却把判据说成主线程；一个 worker 500ms `Paint` 就挂在列表里、判据那行说它不算——**说错了判定规则比不说更糟**，用户会照着页脚去理解退出码。
+- **验证**：54 个测试全过、页面断言覆盖新文案；`sloplint.py` 干净；终端文案本来就把「不在主线程」标出来了，这次只对齐页面。

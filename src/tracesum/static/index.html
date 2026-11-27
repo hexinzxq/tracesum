@@ -110,7 +110,11 @@ function draw(data) {
         + `</li>`;
     }).join("");
   }
-  foot.textContent = `来源 ${data.source} · 判据：主线程上 ≥${data.long_ms ?? 50}ms 的完整事件`;
+  // The list below it also carries worker threads' long tasks; saying the
+  // criterion is "on the main thread" while showing a 500ms worker Paint two
+  // lines down is how a page teaches the wrong rule.
+  foot.textContent = `来源 ${data.source} · 长任务：同一线程上 ≥${data.long_ms ?? 50}ms 的完整事件；`
+    + `只有主线程上的才会让退出码变 1`;
 }
 
 fetch("/api/report", { cache: "no-store" })
