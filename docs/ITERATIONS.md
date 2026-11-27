@@ -163,3 +163,9 @@
 - **改了什么**：`nearby()` 不再内部截断，`build()` 里截到 12 并同时给 `nearby_total`；页面的 `<details>` 标题在超量时写「前后 200ms 的 12 个事件（显示 12 / 共 20）」；顺手把内联的 `_near` 推导式改成 `_long_task(task)` 小函数（上一个版本的可读性太差）。新增 1 条用例（20 个邻居 → `len(nearby)==12`、`nearby_total==20`）。
 - **为什么**：刚加的邻居列表自己又踩了同一个坑——一个 300ms 的任务周围有几十个小事件时只显示 12 个，**不提示还有**；线程列表、长任务列表都说过「3 of 7」，新代码不能例外。
 - **验证**：52 个测试全过（HEAD 51）；`sloplint.py` 干净；`/tmp/nested.json` 的两个邻居仍是 1/1。
+
+## 2026-11-27 #1 带 BOM 的 trace 读不了，报错还在教 Python
+
+- **改了什么**：`load()` 用 `encoding="utf-8-sig"` 读文件，带 UTF-8 BOM 的 trace 正常解析；新增 1 条用例（`\xef\xbb\xbf` + 合法 `traceEvents`）。
+- **为什么**：真跑出来的——`/tmp/bom.json`（BOM + 一份正常 trace）报 `tracesum: /tmp/bom.json is not JSON: Unexpected UTF-8 BOM (decode using utf-8-sig) at line 1`；那句话是 Python 的说法，**命令行用户照着做不了**，而文件本身是好的，一个字节的差异不该让整份 trace 读不了。
+- **验证**：53 个测试全过（HEAD 52）；`/tmp/bom.json` 现在正常出报告（`0.100s of trace, main thread 1 (CrRendererMain) busy 100.0ms`）。

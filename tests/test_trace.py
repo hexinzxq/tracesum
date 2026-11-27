@@ -19,6 +19,12 @@ def write(events) -> Path:
 
 
 class LoadTests(unittest.TestCase):
+    def test_a_trace_saved_with_a_bom_still_loads(self):
+        path = Path(tempfile.mkdtemp()) / "bom.json"
+        path.write_bytes(b"\xef\xbb\xbf" + json.dumps(
+            {"traceEvents": [event("A", 1_000)]}).encode())
+        self.assertEqual(len(load(path)), 1)
+
     def test_a_long_task_carries_what_ran_around_it(self):
         events = [event("RunTask", 300_000, ts=0, tid=1),
                   event("Before", 5_000, ts=-10_000, tid=1),

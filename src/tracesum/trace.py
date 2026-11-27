@@ -72,7 +72,10 @@ class Summary:
 def load(path: Path) -> list[dict]:
     """The event list, accepting both a bare array and the `{"traceEvents": …}` wrapper."""
     try:
-        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+        # `utf-8-sig` so a trace saved with a BOM loads instead of failing with a
+        # JSONDecodeError whose advice ("decode using utf-8-sig") the CLI user
+        # cannot act on.
+        payload = json.loads(Path(path).read_text(encoding="utf-8-sig"))
     except json.JSONDecodeError as error:
         raise TraceError(f"{path} is not JSON: {error.msg} at line {error.lineno}") from error
     except OSError as error:
