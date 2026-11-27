@@ -78,6 +78,16 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print(f"tracesum: {error}", file=sys.stderr)
         return 2
+    # A --kind name the trace never contains changes nothing, and until now the
+    # report looked exactly like one without the flag: the same silence
+    # `--exclude` and `--path` grew a note for in diffbrief.
+    seen = {task.name for thread in summary.threads for task in thread.tasks}
+    for bucket, names in kinds.items():
+        for name in names:
+            if name not in seen:
+                print(f"note: --kind {bucket}={name} matched no event in this trace",
+                      file=sys.stderr)
+
     data = build(summary, args.top, str(path), long_ms=args.long_ms)
     data["long_ms"] = args.long_ms
     # The page polls every few seconds but the trace is read once: say when, so a

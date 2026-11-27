@@ -181,3 +181,9 @@
 - **改了什么**：页面页脚从「判据：主线程上 ≥50ms 的完整事件」改成「长任务：同一线程上 ≥Nms 的完整事件；只有主线程上的才会让退出码变 1」；`tests/test_server.py` 的页面断言加了这句，防止又改回去。
 - **为什么**：`long_tasks` 一直包含非主线程的长任务（终端标题也写「1, 1 not on the main thread」），页脚却把判据说成主线程；一个 worker 500ms `Paint` 就挂在列表里、判据那行说它不算——**说错了判定规则比不说更糟**，用户会照着页脚去理解退出码。
 - **验证**：54 个测试全过、页面断言覆盖新文案；`sloplint.py` 干净；终端文案本来就把「不在主线程」标出来了，这次只对齐页面。
+
+## 2026-11-27 #4 --kind 写了个不会命中的名字，工具一声不响
+
+- **改了什么**：读完 trace 后把 `--kind` 里用户给的每个名字跟实际事件名比一遍，缺的打 `note: --kind script=TimerFire matched no event in this trace`（stderr，不影响退出码）；新增 1 条用例（不存在的名字 → note；空 bucket 不算错误，exit 0）。
+- **为什么**：真跑出来的——`tracesum /tmp/sv.json --kind script=TimerFire` 的输出与不加 flag 一字不差：`script 0.0ms`，没有哪个字说「TimerFire 根本没出现」。这和 diffbrief 里 `--exclude` / `--path` 没命中时补 note 是同一类隐瞒。
+- **验证**：55 个测试全过（HEAD 54）；`/tmp/sv.json` 现在 stderr 有那行 note，stdout 报告不变；命中时（如 `--kind paint=Paint`）不打印。

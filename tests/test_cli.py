@@ -218,6 +218,13 @@ class ExitTests(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("pick one", err.getvalue())
 
+    def test_a_kind_name_the_trace_lacks_says_so(self):
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+            code = main([str(trace([event("Paint", 10_000)])), "--kind", "script=TimerFire"])
+        self.assertEqual(code, 0)  # nothing long, and an empty bucket is not an error
+        self.assertIn("note: --kind script=TimerFire matched no event", err.getvalue())
+
     def test_top_must_be_positive(self):
         path = trace([event("Small", 1_000)])
         self.assertEqual(main([str(path), "--top", "0"]), 2)
