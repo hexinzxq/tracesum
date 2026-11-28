@@ -23,6 +23,7 @@ class Task:
     dur: float            # microseconds
     tid: int
     start: float
+    pid: int = 0
 
     @property
     def ms(self) -> float:
@@ -35,6 +36,7 @@ class Thread:
     busy: float = 0.0
     name: str = ""
     tasks: list[Task] = field(default_factory=list)
+    pid: int = 0
 
 
 @dataclass
@@ -91,6 +93,17 @@ def load(path: Path) -> list[dict]:
     return events
 
 
+def _pid(event: dict) -> int:
+    """The process a thread lives in: tids are only unique inside one process."""
+    raw = event.get("pid")
+    if raw is None:
+        return 0
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return 0
+
+
 def _tid(event: dict) -> int:
     """A tid we can group by, or a sentence instead of a TypeError.
 
@@ -140,23 +153,27 @@ KINDS: dict[str, tuple[str, ...]] = {
 def summarise(events: list[dict], long_ms: float = 50.0,
               kinds: dict[str, tuple[str, ...]] | None = None) -> Summary:
     """Aggregate complete events by thread, and bucket the main-thread work by kind."""
-    by_thread: dict[int, Thread] = {}
+    by_thread: dict[tuple[int, int], Thread] = {}
     starts: list[float] = []
-    names: dict[int, str] = {}
+    names: dict[tuple[int, int], str] = {}
     for event in events:
         # `ph: "M"` is metadata: the trace itself says which tid is which thread,
         # and a report that guesses from busy time gets renderer-vs-worker wrong.
         if (event.get("ph") == "M" and event.get("name") == "thread_name"
                 and isinstance(event.get("args"), dict)):
-            names[_tid(event)] = str(event["args"].get("name") or "")
+            names[(_pid(event), _tid(event))] = str(event["args"].get("name") or "")
     for event in events:
         dur = event.get("dur")
         if event.get("ph") != "X" or not isinstance(dur, (int, float)) or dur <= 0:
             continue
-        tid = _tid(event)
+        tid, pid = _tid(event), _pid(event)
         start = float(event.get("ts") or 0)
-        thread = by_thread.setdefault(tid, Thread(tid, name=names.get(tid, "")))
-        task = Task(str(event.get("name") or event.get("cat") or "?"), float(dur), tid, start)
+        # Two renderer processes both have a tid 1 (and both may name it
+        # CrRendererMain): keying by tid alone merges two threads into one, so
+        # the report credits one process's Layout to the other's main thread.
+        thread = by_thread.setdefault((pid, tid),
+                                      Thread(tid, name=names.get((pid, tid), ""), pid=pid))
+        task = Task(str(event.get("name") or event.get("cat") or "?"), float(dur), tid, start, pid)
         thread.tasks.append(task)
         starts.append(start)
         starts.append(start + task.dur)

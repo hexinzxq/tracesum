@@ -19,6 +19,18 @@ def write(events) -> Path:
 
 
 class LoadTests(unittest.TestCase):
+    def test_two_processes_sharing_a_tid_are_two_threads(self):
+        events = [{"ph": "M", "name": "thread_name", "pid": 1, "tid": 1,
+                   "args": {"name": "CrRendererMain"}},
+                  {"ph": "X", "name": "Paint", "dur": 100_000, "ts": 0, "pid": 1, "tid": 1},
+                  {"ph": "X", "name": "Layout", "dur": 300_000, "ts": 0, "pid": 2, "tid": 1}]
+        summary = summarise(events)
+        self.assertEqual(len(summary.threads), 2)
+        self.assertEqual(summary.main.pid, 1)
+        self.assertEqual(summary.main.busy, 100_000)
+        # the other process's Layout must not land in this thread's bucket
+        self.assertEqual(summary.layout_us, 0)
+
     def test_an_unreadable_tid_is_a_sentence(self):
         with self.assertRaises(TraceError) as caught:
             summarise([{"ph": "X", "name": "A", "dur": 1000, "ts": 0, "tid": {"x": 1}}])

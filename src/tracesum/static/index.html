@@ -69,7 +69,7 @@ function draw(data) {
     `<span class="chip">layout <b>${data.layout_ms}</b>ms · <b>${data.layout_count}</b> 次</span>`,
     `<span class="chip">paint <b>${data.paint_ms}</b>ms</span>`,
     ...(data.threads || []).slice(0, 3).map((thread) =>
-      `<span class="chip">${esc(thread.name || "tid " + thread.tid)} <b>${thread.busy_ms}</b>ms · ${thread.tasks} 个任务</span>`),
+      `<span class="chip">${esc((thread.ambiguous_tid && thread.pid ? "pid " + thread.pid + " " : "") + (thread.name || "tid " + thread.tid))} <b>${thread.busy_ms}</b>ms · ${thread.tasks} 个任务</span>`),
     ...(() => {
       const shown = Math.min(3, (data.threads || []).length);
       const total = data.thread_total || shown;

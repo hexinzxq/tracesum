@@ -15,7 +15,7 @@ def nearby(task, tasks, long_ms: float = 50.0) -> list[dict]:
     """
     start, end = task.start - NEAR_US, task.start + task.dur + NEAR_US
     around = [other for other in tasks
-              if other is not task and other.tid == task.tid
+              if other is not task and (other.pid, other.tid) == (task.pid, task.tid)
               and other.start + other.dur >= start and other.start <= end]
     around.sort(key=lambda other: other.start)
     return [{"name": other.name, "ms": round(other.ms, 1),
@@ -25,19 +25,21 @@ def nearby(task, tasks, long_ms: float = 50.0) -> list[dict]:
 
 def build(summary: Summary, top: int = 10, source: str = "", long_ms: float = 50.0) -> dict:
     main = summary.main
-    names = {thread.tid: thread.name for thread in summary.threads if thread.name}
+    names = {(thread.pid, thread.tid): thread.name for thread in summary.threads if thread.name}
+    tids = [thread.tid for thread in summary.threads]
     every_task = [task for thread in summary.threads for task in thread.tasks]
 
     def _long_task(task) -> dict:
         around = nearby(task, every_task, long_ms)
         return {"name": task.name, "ms": round(task.ms, 1), "tid": task.tid,
+                "pid": task.pid,
                 "nested": bool(parent_of(task)),
                 "parent": parent_of(task).name if parent_of(task) else "",
                 # relative to the trace's first event, like the DevTools timeline:
                 # an absolute ts from process start is thousands of seconds
                 "start_s": round((task.start - summary.origin_us) / 1_000_000, 3),
                 "ts_us": int(task.start),
-                "thread": names.get(task.tid, f"tid {task.tid}"),
+                "thread": names.get((task.pid, task.tid), f"tid {task.tid}"),
                 # Capped at 12 for the page; say how many there were, the same way
                 # the thread list and the long-task list say it.
                 "nearby": around[:12],
@@ -48,7 +50,8 @@ def build(summary: Summary, top: int = 10, source: str = "", long_ms: float = 50
     def parent_of(task):
         # A 60ms child inside a 300ms parent is part of one hitch, not a second one.
         for other in summary.long_tasks:
-            if (other is not task and other.tid == task.tid and other.dur > task.dur
+            if (other is not task and (other.pid, other.tid) == (task.pid, task.tid)
+                    and other.dur > task.dur
                     and other.start <= task.start
                     and other.start + other.dur >= task.start + task.dur):
                 return other
@@ -74,7 +77,9 @@ def build(summary: Summary, top: int = 10, source: str = "", long_ms: float = 50
                                       + summary.layout_us + summary.paint_us
                                       + summary.other_us) / 1000 - summary.main.busy / 1000), 1),
         "thread_total": len(summary.threads),
-        "threads": [{"tid": thread.tid, "name": thread.name,
+        "threads": [{"tid": thread.tid, "name": thread.name, "pid": thread.pid,
+                     # two processes can both have a tid 1: show which one
+                     "ambiguous_tid": tids.count(thread.tid) > 1,
                      "busy_ms": round(thread.busy / 1000, 1),
                      "tasks": len(thread.tasks)} for thread in summary.threads[:5]],
         "long_count": len(summary.long_tasks),
@@ -118,9 +123,15 @@ def render(data: dict) -> str:
         label = (f"threads ({len(cut)} of {total} shown, busiest first):"
                  if total > len(cut) else "threads:")
         # `2 ? 60.0ms` reads like a missing value; an unnamed thread is still a tid.
+        # Two processes can both own a tid 1: printing "tid 1" twice reads as
+        # one thread listed twice, so name the process when tids repeat.
+        def owner(thread: dict) -> str:
+            base = f"tid {thread['tid']} {thread['name']}" if thread["name"] else f"tid {thread['tid']}"
+            return (f"pid {thread['pid']} {base}"
+                    if thread.get("ambiguous_tid") and thread.get("pid") else base)
+
         shown = " · ".join(
-            (f"{thread['tid']} {thread['name']}" if thread["name"]
-             else f"tid {thread['tid']}")
+            owner(thread)
             + f" {thread['busy_ms']:.1f}ms / {thread['tasks']} "
               f"{'task' if thread['tasks'] == 1 else 'tasks'}"
             for thread in cut)

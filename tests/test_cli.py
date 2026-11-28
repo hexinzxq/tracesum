@@ -99,7 +99,7 @@ class ExitTests(unittest.TestCase):
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
             main([str(path)])
-        self.assertIn("threads: 2 Compositor 500.0ms / 1 task", out.getvalue())
+        self.assertIn("threads: tid 2 Compositor 500.0ms / 1 task", out.getvalue())
 
     def test_a_single_thread_trace_has_no_threads_line(self):
         path = trace([event("Quick", 20_000, tid=1)])

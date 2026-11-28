@@ -193,3 +193,9 @@
 - **改了什么**：新增 `_tid(event)`——`tid` 缺失按线程 0（有些 trace 就这样），存在但读不成整数就抛 `TraceError: a complete event (A) has an unusable tid {'x': 1} — this does not look like a Chrome trace`；`summarise` 里两处 `int(event.get("tid") or 0)` 全部换掉；新增 2 条用例（对象 tid → 一句话；没有 tid → 线程 0）。
 - **为什么**：真跑出来的——`printf '{"traceEvents": [{"ph":"X","name":"A","dur":1000,"ts":0,"tid":{"x":1}}]}'` 直接 `TypeError: int() argument must be … not 'dict'` + 栈；Chrome 写数字，但手改过的导出和其它工具会写字符串或对象，**能读的说清、不能读的给一句话，别让 Python 的异常类型当门面**。
 - **验证**：57 个测试全过（HEAD 55）；`/tmp/badtid.json` 现在 `tracesum: a complete event (A) has an unusable tid {'x': 1} — this does not look like a Chrome trace`、exit 2。
+
+## 2026-11-28 #1 两个进程都有 tid 1，被合成了一条线程
+
+- **改了什么**：`Thread` / `Task` 带上 `pid`，线程分组从 `tid` 改成 `(pid, tid)`，`thread_name` 元数据同样按这对键存；邻居与「嵌套父任务」比较也带 pid；payload 的线程项加 `pid` 与 `ambiguous_tid`，tid 重复时终端写 `pid 2 tid 1`、页面 chip 也带 pid；新增 1 条用例（两个进程各有 tid 1 → 两条线程、主线程忙 100ms、另一个进程的 Layout 不进分项），一条老断言改成新格式。
+- **为什么**：真跑出来的——pid 1 的 `CrRendererMain` 有 100ms `Paint`、pid 2 的 tid 1 有 300ms `Layout`，报告写成「main thread 1 busy 300.0ms」、`layout 300.0ms` 还挂一条「分项重叠 100ms：嵌套任务算重了」的 note：**把另一个进程的活算到主线程头上，再把原因赖给嵌套**。tid 只在进程内唯一。
+- **验证**：58 个测试全过（HEAD 57）；`/tmp/pids.json` 现在 `main thread 1 (CrRendererMain) busy 100.0ms (33.3%)`、`layout 0.0ms`、无重叠 note，线程行写 `pid 2 tid 1 300.0ms · pid 1 tid 1 CrRendererMain 100.0ms`。
