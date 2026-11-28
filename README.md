@@ -6,11 +6,12 @@
 
 ## 它回答什么
 
-- 这份 trace 多长，主线程（最忙的那个 tid）忙了多少毫秒、占比多少
-- script / style / layout / paint 各占多久，layout 跑了几趟
-- 主线程上超过 50ms 的完整事件（`ph: "X"`），按耗时从长到短
+- 这份 trace 多长，主线程忙了多少毫秒、占比多少——主线程按 trace 里的 `thread_name`（`CrRendererMain`）认，认不出来才退回最忙的线程，并在报告里说「这是猜的」
+- script / style / layout / paint 各占多久，layout 跑了几趟；四个分项没归到的部分单列 `other`（定时器、事件派发、合成……），分项之和超过忙时会明说「分项重叠」
+- 每个线程忙了多久（不只是主线程）
+- 同一线程上超过 50ms 的完整事件（`ph: "X"`），按耗时从长到短；`--serve` 里可以点开看它前后 200ms 的邻居事件
 
-`script` 只认 `FunctionCall` / `EvaluateScript` / `v8.run` 三个名字，所以它是下限而不是全貌——报告里不给百分比，只给毫秒数。
+`script` 默认只认 `FunctionCall` / `EvaluateScript` / `v8.run` 三个名字，所以它是下限而不是全貌——报告里不给百分比，只给毫秒数；框架/自家的事件名用 `--kind` 补。
 
 ## 快速开始
 
@@ -45,5 +46,4 @@ python -m unittest discover -s tests -t .
 ## 待办
 
 - 大文件：现在是整体 `json.loads`，200MB 的 profile 会吃掉内存；下一步做流式解析（按 `traceEvents` 切块）
-- 事件分类表做成可配置（`--kind script=FunctionCall,Compile`），不同框架叫法不一样
-- `--serve` 加上把长任务按「前后 200ms 的上下文」展开，点一下能看到邻居事件
+- 大文件再进一步：`--json` 目前仍是整份报告进内存，流式之后才能对 200MB 说「随便跑」
