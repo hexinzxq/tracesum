@@ -205,3 +205,9 @@
 - **改了什么**：payload 加 `main_pid` 与 `main_candidates`（叫 `CrRendererMain` 的线程数）；大于 1 时终端在分项行下补 `note: 2 threads are named CrRendererMain (one per renderer process); reporting the busiest, pid 2`；新增 1 条用例。
 - **为什么**：真跑出来的——pid 1 与 pid 2 各有一条 `CrRendererMain`（各 100ms / 300ms `Paint`），报告只写「main thread 1 (CrRendererMain) busy 300.0ms」，读者不知道**这条 trace 里有两条主线程、报的是哪一条**；进程 id 是唯一能区分它们的东西（tid 都是 1）。
 - **验证**：59 个测试全过（HEAD 58）；`/tmp/2mains.json` 现在第三行是那条 note，headline 与分项不变；只有一条 `CrRendererMain` 时不打 note。
+
+## 2026-11-28 #3 --host 0.0.0.0 打印的 URL 浏览器打不开
+
+- **改了什么**：新增 `server.url_for(host, port)`——通配地址（`0.0.0.0` / `::` / 空）换成 `127.0.0.1`，其它地址原样；`serve()` 的 banner 用它，并在通配时补一句「all interfaces — other machines use this port on this machine's address」；新增 1 条用例（三种 host）。
+- **为什么**：真跑出来的——`--serve --host 0.0.0.0` 打 `tracesum  http://0.0.0.0:64072/`，**没有一个浏览器能开这个地址**；人照着这行复制只会得到「无法访问」。监听 0.0.0.0 的人正是想从别的机器打开，banner 偏偏给了最没用的那个字符串。
+- **验证**：60 个测试全过（HEAD 59）；现在 banner 是 `http://127.0.0.1:64072/` 加那句说明；`--host 192.168.1.5` 仍原样显示。

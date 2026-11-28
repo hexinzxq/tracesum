@@ -57,9 +57,22 @@ def make_handler(data: dict) -> type[BaseHTTPRequestHandler]:
     return Handler
 
 
+WILDCARD = {"0.0.0.0", "::", ""}
+
+
+def url_for(host: str, port: int) -> str:
+    """A URL a browser can open: `http://0.0.0.0:8765/` is not one."""
+    shown = "127.0.0.1" if host in WILDCARD else host
+    return f"http://{shown}:{port}/"
+
+
 def serve(data: dict, host: str = "127.0.0.1", port: int = 8765) -> None:
     httpd = ThreadingHTTPServer((host, port), make_handler(data))
-    print(f"tracesum  http://{host}:{httpd.server_address[1]}/  (ctrl-c to stop)", flush=True)
+    bound = httpd.server_address[1]
+    # Browsers do not open 0.0.0.0; say which address the banner is standing in for.
+    note = ("  (all interfaces — other machines use this port on this machine's address)"
+            if host in WILDCARD else "")
+    print(f"tracesum  {url_for(host, bound)}  (ctrl-c to stop){note}", flush=True)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

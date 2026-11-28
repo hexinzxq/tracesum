@@ -6,7 +6,7 @@ import urllib.request
 from http.server import ThreadingHTTPServer
 
 from tracesum import server
-from tracesum.server import make_handler
+from tracesum.server import make_handler, url_for
 
 
 def get(port: int, path: str):
@@ -42,6 +42,11 @@ class ServerTests(unittest.TestCase):
     def tearDown(self):
         self.server.shutdown()
         self.server.server_close()
+
+    def test_a_wildcard_host_gets_a_url_a_browser_can_open(self):
+        self.assertEqual(url_for("0.0.0.0", 8765), "http://127.0.0.1:8765/")
+        self.assertEqual(url_for("::", 8765), "http://127.0.0.1:8765/")
+        self.assertEqual(url_for("192.168.1.5", 9000), "http://192.168.1.5:9000/")
 
     def test_the_api_returns_the_payload_verbatim(self):
         status, headers, body = get(self.port, "/api/report")
