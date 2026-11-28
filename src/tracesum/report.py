@@ -60,10 +60,15 @@ def build(summary: Summary, top: int = 10, source: str = "", long_ms: float = 50
         "source": source,
         "span_s": round(summary.total_us / 1_000_000, 3),
         "main_tid": main.tid,
+        "main_pid": main.pid,
         "main_name": main.name,
         # With no thread names in the trace, "main" is just the busiest thread: the
         # report must say so instead of presenting a guess as a fact.
         "main_guessed": not any(thread.name == "CrRendererMain" for thread in summary.threads),
+        # A trace can hold more than one renderer process, so more than one thread
+        # is called CrRendererMain; the headline must say it picked one of them.
+        "main_candidates": sum(1 for thread in summary.threads
+                               if thread.name == "CrRendererMain"),
         "busy_ms": round(main.busy / 1000, 1),
         "busy_share": round(summary.busy_share * 100, 1),
         "layout_ms": round(summary.layout_us / 1000, 1),
@@ -136,6 +141,9 @@ def render(data: dict) -> str:
               f"{'task' if thread['tasks'] == 1 else 'tasks'}"
             for thread in cut)
         lines.append(f"{label} {shown}")
+    if data.get("main_candidates", 0) > 1:
+        lines.append(f"  note: {data['main_candidates']} threads are named CrRendererMain "
+                     f"(one per renderer process); reporting the busiest, pid {data.get('main_pid')}")
     if data["long_tasks"]:
         # `--top` is a view, not a measurement: say how many there are in total,
         # otherwise "3 long tasks" reads as if that is all the trace has.

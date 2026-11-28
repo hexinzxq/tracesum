@@ -199,3 +199,9 @@
 - **改了什么**：`Thread` / `Task` 带上 `pid`，线程分组从 `tid` 改成 `(pid, tid)`，`thread_name` 元数据同样按这对键存；邻居与「嵌套父任务」比较也带 pid；payload 的线程项加 `pid` 与 `ambiguous_tid`，tid 重复时终端写 `pid 2 tid 1`、页面 chip 也带 pid；新增 1 条用例（两个进程各有 tid 1 → 两条线程、主线程忙 100ms、另一个进程的 Layout 不进分项），一条老断言改成新格式。
 - **为什么**：真跑出来的——pid 1 的 `CrRendererMain` 有 100ms `Paint`、pid 2 的 tid 1 有 300ms `Layout`，报告写成「main thread 1 busy 300.0ms」、`layout 300.0ms` 还挂一条「分项重叠 100ms：嵌套任务算重了」的 note：**把另一个进程的活算到主线程头上，再把原因赖给嵌套**。tid 只在进程内唯一。
 - **验证**：58 个测试全过（HEAD 57）；`/tmp/pids.json` 现在 `main thread 1 (CrRendererMain) busy 100.0ms (33.3%)`、`layout 0.0ms`、无重叠 note，线程行写 `pid 2 tid 1 300.0ms · pid 1 tid 1 CrRendererMain 100.0ms`。
+
+## 2026-11-28 #2 两条 CrRendererMain，报告只字不提有两条
+
+- **改了什么**：payload 加 `main_pid` 与 `main_candidates`（叫 `CrRendererMain` 的线程数）；大于 1 时终端在分项行下补 `note: 2 threads are named CrRendererMain (one per renderer process); reporting the busiest, pid 2`；新增 1 条用例。
+- **为什么**：真跑出来的——pid 1 与 pid 2 各有一条 `CrRendererMain`（各 100ms / 300ms `Paint`），报告只写「main thread 1 (CrRendererMain) busy 300.0ms」，读者不知道**这条 trace 里有两条主线程、报的是哪一条**；进程 id 是唯一能区分它们的东西（tid 都是 1）。
+- **验证**：59 个测试全过（HEAD 58）；`/tmp/2mains.json` 现在第三行是那条 note，headline 与分项不变；只有一条 `CrRendererMain` 时不打 note。

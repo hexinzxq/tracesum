@@ -225,6 +225,20 @@ class ExitTests(unittest.TestCase):
         self.assertEqual(code, 0)  # nothing long, and an empty bucket is not an error
         self.assertIn("note: --kind script=TimerFire matched no event", err.getvalue())
 
+    def test_two_renderer_mains_say_which_one_was_reported(self):
+        events = [{"ph": "M", "name": "thread_name", "pid": 1, "tid": 1,
+                   "args": {"name": "CrRendererMain"}},
+                  {"ph": "M", "name": "thread_name", "pid": 2, "tid": 1,
+                   "args": {"name": "CrRendererMain"}},
+                  {"ph": "X", "name": "Paint", "dur": 100_000, "ts": 0, "pid": 1, "tid": 1},
+                  {"ph": "X", "name": "Paint", "dur": 300_000, "ts": 0, "pid": 2, "tid": 1}]
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            main([str(trace(events))])
+        text = out.getvalue()
+        self.assertIn("2 threads are named CrRendererMain", text)
+        self.assertIn("reporting the busiest, pid 2", text)
+
     def test_top_must_be_positive(self):
         path = trace([event("Small", 1_000)])
         self.assertEqual(main([str(path), "--top", "0"]), 2)
